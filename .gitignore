@@ -1,0 +1,7 @@
+# Compiled binaries
+/orbit
+/orbit.exe
+
+# Build artifacts
+*.test
+*.out
