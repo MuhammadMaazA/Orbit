@@ -2,6 +2,7 @@ package replay
 
 import (
 	"fmt"
+	"math"
 	"sort"
 	"strconv"
 	"strings"
@@ -41,6 +42,7 @@ type running struct {
 	job     Event
 	worker  string
 	attempt int
+	start   int64
 	end     int64
 }
 
@@ -157,13 +159,19 @@ func schedule(at int64, config Config, workers map[string]model.Worker, queue *[
 		}
 		worker := list[index]
 		before := worker.Capacity
+		eligible := make([]string, 0, len(list))
+		for _, candidate := range list {
+			if candidate.Capacity.CanFit(model.Job{CPU: job.CPU, MemoryMB: job.MemoryMB, GPU: job.GPU}.Resources()) {
+				eligible = append(eligible, candidate.ID)
+			}
+		}
 		if err := worker.Capacity.Allocate(model.Job{CPU: job.CPU, MemoryMB: job.MemoryMB, GPU: job.GPU}.Resources()); err != nil {
 			break
 		}
 		workers[worker.ID] = worker
-		active[job.JobID] = running{job: job, worker: worker.ID, attempt: 1, end: at + job.DurationMS}
+		active[job.JobID] = running{job: job, worker: worker.ID, attempt: 1, start: at, end: at + job.DurationMS}
 		*queue = (*queue)[1:]
-		result.Decisions = append(result.Decisions, Decision{TimeMS: at, JobID: job.JobID, Policy: config.Policy.Name(), Eligible: []string{worker.ID}, Selected: worker.ID})
+		result.Decisions = append(result.Decisions, Decision{TimeMS: at, JobID: job.JobID, Policy: config.Policy.Name(), Eligible: eligible, Selected: worker.ID})
 		if config.Explain {
 			_ = before
 		}
@@ -182,7 +190,7 @@ func finish(active *map[string]running, workers map[string]model.Worker, complet
 		energyModel.Observe(job.worker, worker.Capacity, float64(at)/1000)
 		completed[id] = true
 		result.Completed++
-		*waits = append(*waits, job.end-job.job.TimeMS-job.job.DurationMS)
+		*waits = append(*waits, job.start-job.job.TimeMS)
 		delete(*active, id)
 	}
 }
@@ -218,9 +226,20 @@ func setPercentiles(result *Result, values []int64) {
 	}
 	sort.Slice(values, func(i, j int) bool { return values[i] < values[j] })
 	result.MeanWaitMS = average(values)
-	result.P50WaitMS = float64(values[(len(values)-1)*50/100])
-	result.P95WaitMS = float64(values[(len(values)-1)*95/100])
-	result.P99WaitMS = float64(values[(len(values)-1)*99/100])
+	result.P50WaitMS = float64(values[percentileIndex(len(values), 0.50)])
+	result.P95WaitMS = float64(values[percentileIndex(len(values), 0.95)])
+	result.P99WaitMS = float64(values[percentileIndex(len(values), 0.99)])
+}
+
+func percentileIndex(count int, percentile float64) int {
+	index := int(math.Ceil(percentile*float64(count))) - 1
+	if index < 0 {
+		return 0
+	}
+	if index >= count {
+		return count - 1
+	}
+	return index
 }
 func average(values []int64) float64 {
 	var total int64

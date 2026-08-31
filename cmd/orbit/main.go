@@ -189,6 +189,13 @@ func printComparison(trace replay.Trace, baselineName, candidateName string, bas
 	fmt.Printf("p95_wait_ms             %-14.2f %-14.2f %+0.2f\n", left.P95WaitMS, right.P95WaitMS, right.P95WaitMS-left.P95WaitMS)
 	fmt.Printf("energy_joules           %-14.2f %-14.2f %+0.2f\n", left.EnergyJoules, right.EnergyJoules, right.EnergyJoules-left.EnergyJoules)
 	fmt.Printf("active_worker_time_s    %-14.2f %-14.2f %+0.2f\n", left.ActiveWorkerTime, right.ActiveWorkerTime, right.ActiveWorkerTime-left.ActiveWorkerTime)
+	for index := 0; index < len(left.Decisions) && index < len(right.Decisions); index++ {
+		baselineDecision, candidateDecision := left.Decisions[index], right.Decisions[index]
+		if baselineDecision.JobID != candidateDecision.JobID || baselineDecision.Selected != candidateDecision.Selected {
+			fmt.Printf("first_divergence           t=%dms job=%s baseline=%s candidate=%s\n", baselineDecision.TimeMS, baselineDecision.JobID, baselineDecision.Selected, candidateDecision.Selected)
+			return
+		}
+	}
 }
 
 func replayPolicy(name string) (scheduler.Policy, error) {

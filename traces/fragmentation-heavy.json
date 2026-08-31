@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "events": [
+    {"time_ms": 0, "type": "worker_added", "worker_id": "worker-a", "cpu": 16, "memory_mb": 8192, "gpu": 0},
+    {"time_ms": 0, "type": "worker_added", "worker_id": "worker-b", "cpu": 8, "memory_mb": 16384, "gpu": 0},
+    {"time_ms": 10, "type": "job_submitted", "job_id": "frag-1", "cpu": 4, "memory_mb": 4096, "duration_ms": 100},
+    {"time_ms": 10, "type": "job_submitted", "job_id": "frag-2", "cpu": 8, "memory_mb": 4096, "duration_ms": 100},
+    {"time_ms": 10, "type": "job_submitted", "job_id": "frag-3", "cpu": 8, "memory_mb": 8192, "duration_ms": 100}
+  ]
+}

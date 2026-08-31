@@ -1,0 +1,17 @@
+trace,policy,jobs,completed,makespan_ms,mean_wait_ms,p50_wait_ms,p95_wait_ms,p99_wait_ms,retries,failures,energy_joules,active_worker_time_s
+bursty,first-fit,7,7,250,0.00,0.00,0.00,0.00,0,0,84.40,0.43
+bursty,best-fit,7,7,250,0.00,0.00,0.00,0.00,0,0,84.40,0.43
+bursty,bin-pack,7,7,250,0.00,0.00,0.00,0.00,0,0,84.40,0.43
+bursty,energy,7,7,250,0.00,0.00,0.00,0.00,0,0,84.40,0.43
+gpu-heavy,first-fit,4,4,230,52.50,0.00,110.00,110.00,0,0,86.50,0.23
+gpu-heavy,best-fit,4,4,230,52.50,0.00,110.00,110.00,0,0,86.50,0.23
+gpu-heavy,bin-pack,4,4,230,52.50,0.00,110.00,110.00,0,0,86.50,0.23
+gpu-heavy,energy,4,4,230,52.50,0.00,110.00,110.00,0,0,86.50,0.23
+fragmentation-heavy,first-fit,3,3,110,0.00,0.00,0.00,0.00,0,0,42.00,0.20
+fragmentation-heavy,best-fit,3,3,210,33.33,0.00,100.00,100.00,0,0,62.00,0.30
+fragmentation-heavy,bin-pack,3,3,110,0.00,0.00,0.00,0.00,0,0,42.00,0.20
+fragmentation-heavy,energy,3,3,110,0.00,0.00,0.00,0.00,0,0,42.00,0.20
+failure-heavy,first-fit,2,2,300,85.00,80.00,90.00,90.00,2,1,75.70,0.29
+failure-heavy,best-fit,2,2,300,85.00,80.00,90.00,90.00,2,1,75.70,0.29
+failure-heavy,bin-pack,2,2,300,85.00,80.00,90.00,90.00,2,1,75.70,0.29
+failure-heavy,energy,2,2,300,85.00,80.00,90.00,90.00,2,1,75.70,0.29
