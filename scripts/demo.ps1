@@ -11,6 +11,8 @@ try {
     go build -o (Join-Path $work 'worker.exe') ./cmd/worker
     go build -o (Join-Path $work 'orbit.exe') ./cmd/orbit
 
+    & (Join-Path $work 'orbit.exe') compare -trace (Join-Path $root 'traces/heterogeneous.json') -baseline first-fit -candidate energy
+
     $controller = Start-Process -WindowStyle Hidden -FilePath (Join-Path $work 'controller.exe') -ArgumentList '-addr','127.0.0.1:19000','-worker-timeout','2s','-policy','energy' -PassThru
     $workerB = Start-Process -WindowStyle Hidden -FilePath (Join-Path $work 'worker.exe') -ArgumentList '-controller','127.0.0.1:19000','-id','worker-b','-duration','10s' -PassThru
     $workerA = Start-Process -WindowStyle Hidden -FilePath (Join-Path $work 'worker.exe') -ArgumentList '-controller','127.0.0.1:19000','-id','worker-a','-duration','10s' -PassThru
@@ -29,5 +31,8 @@ finally {
     }
     $env:GOCACHE = $previousCache
     Pop-Location
-    Remove-Item -LiteralPath $work -Recurse -Force
+    for ($attempt = 0; $attempt -lt 5 -and (Test-Path -LiteralPath $work); $attempt++) {
+        Remove-Item -LiteralPath $work -Recurse -Force -ErrorAction SilentlyContinue
+        if (Test-Path -LiteralPath $work) { Start-Sleep -Milliseconds 250 }
+    }
 }

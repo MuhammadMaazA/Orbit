@@ -1,4 +1,5 @@
-policy,jobs,completed,makespan,average_wait,average_turnaround
-first-fit,100,100,99,0.00,3.14
-best-fit,100,100,99,0.00,3.14
-bin-pack,100,100,99,0.00,3.14
+policy,jobs,completed,makespan,average_wait,average_turnaround,energy_joules,active_worker_time
+first-fit,1000,1000,995,0.00,3.04,276120.00,1073.00
+best-fit,1000,1000,995,0.00,3.04,276120.00,1068.00
+bin-pack,1000,1000,995,0.00,3.04,276120.00,1067.00
+energy,1000,1000,995,0.00,3.04,276120.00,1067.00

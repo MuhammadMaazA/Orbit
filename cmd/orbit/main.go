@@ -9,13 +9,20 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"orbit/internal/energy"
+	"orbit/internal/replay"
 	v1 "orbit/internal/rpc/orbitv1/orbit/v1"
+	"orbit/internal/scheduler"
 )
 
 func main() {
-	if len(os.Args) < 2 || (os.Args[1] != "submit" && os.Args[1] != "status" && os.Args[1] != "drain" && os.Args[1] != "undrain") {
-		fmt.Fprintln(os.Stderr, "usage: orbit submit|status|drain|undrain [flags]")
+	if len(os.Args) < 2 || (os.Args[1] != "submit" && os.Args[1] != "status" && os.Args[1] != "drain" && os.Args[1] != "undrain" && os.Args[1] != "replay" && os.Args[1] != "compare") {
+		fmt.Fprintln(os.Stderr, "usage: orbit submit|status|drain|undrain|replay|compare [flags]")
 		os.Exit(2)
+	}
+	if os.Args[1] == "replay" || os.Args[1] == "compare" {
+		runReplayCommand(os.Args[1], os.Args[2:])
+		return
 	}
 	flags := flag.NewFlagSet(os.Args[1], flag.ExitOnError)
 	address := flags.String("controller", "127.0.0.1:9000", "controller address")
@@ -98,5 +105,103 @@ func main() {
 		fmt.Println("queued")
 	} else {
 		fmt.Printf("assigned %s to %s\n", assignment.Id, assignment.WorkerId)
+	}
+}
+
+func runReplayCommand(command string, arguments []string) {
+	flags := flag.NewFlagSet(command, flag.ExitOnError)
+	tracePath := flags.String("trace", "", "versioned trace JSON path")
+	policyName := flags.String("policy", "first-fit", "replay policy")
+	baselineName := flags.String("baseline", "first-fit", "comparison baseline policy")
+	candidateName := flags.String("candidate", "energy", "comparison candidate policy")
+	failure := flags.String("inject-failure", "", "worker-id@seconds")
+	workerScale := flags.Int("worker-scale", 1, "capacity scale for replay workers")
+	gpuScale := flags.Int("gpu-scale", 1, "GPU capacity scale for replay workers")
+	powerIdle := flags.Float64("power-idle", 100, "idle worker power in watts")
+	powerCPU := flags.Float64("power-cpu", 10, "power per allocated CPU in watts")
+	powerGPU := flags.Float64("power-gpu", 50, "power per allocated GPU in watts")
+	explain := flags.Bool("explain", false, "include scheduling decisions")
+	flags.Parse(arguments)
+	if *tracePath == "" {
+		slog.Error("trace is required")
+		os.Exit(2)
+	}
+	file, err := os.Open(*tracePath)
+	if err != nil {
+		slog.Error("open trace", "error", err)
+		os.Exit(1)
+	}
+	defer file.Close()
+	trace, err := replay.Load(file)
+	if err != nil {
+		slog.Error("load trace", "error", err)
+		os.Exit(1)
+	}
+	if command == "compare" {
+		printComparison(trace, *baselineName, *candidateName, replay.Config{WorkerScale: *workerScale, GPUScale: *gpuScale, Power: energy.Config{IdleWatts: *powerIdle, CPUWatts: *powerCPU, GPUWatts: *powerGPU}, Explain: *explain})
+		return
+	}
+	policy, err := replayPolicy(*policyName)
+	if err != nil {
+		slog.Error("policy", "error", err)
+		os.Exit(2)
+	}
+	result, err := replay.Run(trace, replay.Config{Policy: policy, WorkerScale: *workerScale, GPUScale: *gpuScale, Power: energy.Config{IdleWatts: *powerIdle, CPUWatts: *powerCPU, GPUWatts: *powerGPU}, InjectFailure: *failure, Explain: *explain})
+	if err != nil {
+		slog.Error("replay", "error", err)
+		os.Exit(1)
+	}
+	fmt.Printf("policy=%s jobs=%d completed=%d makespan=%dms p95_wait=%.0fms energy=%.2fJ active_worker_time=%.2fs retries=%d failures=%d\n", result.Policy, result.Jobs, result.Completed, result.MakespanMS, result.P95WaitMS, result.EnergyJoules, result.ActiveWorkerTime, result.Retries, result.Failures)
+	for _, decision := range result.Decisions {
+		if *explain {
+			fmt.Printf("t=%dms job=%s policy=%s selected=%s\n", decision.TimeMS, decision.JobID, decision.Policy, decision.Selected)
+		}
+	}
+}
+
+func printComparison(trace replay.Trace, baselineName, candidateName string, base replay.Config) {
+	baseline, err := replayPolicy(baselineName)
+	if err != nil {
+		slog.Error("baseline policy", "error", err)
+		os.Exit(2)
+	}
+	candidate, err := replayPolicy(candidateName)
+	if err != nil {
+		slog.Error("candidate policy", "error", err)
+		os.Exit(2)
+	}
+	base.Policy = baseline
+	candidateConfig := base
+	candidateConfig.Policy = candidate
+	left, err := replay.Run(trace, base)
+	if err != nil {
+		slog.Error("baseline replay", "error", err)
+		os.Exit(1)
+	}
+	right, err := replay.Run(trace, candidateConfig)
+	if err != nil {
+		slog.Error("candidate replay", "error", err)
+		os.Exit(1)
+	}
+	fmt.Println("metric                  baseline       candidate       delta")
+	fmt.Printf("completed               %-14d %-14d %+d\n", left.Completed, right.Completed, right.Completed-left.Completed)
+	fmt.Printf("makespan_ms             %-14d %-14d %+d\n", left.MakespanMS, right.MakespanMS, right.MakespanMS-left.MakespanMS)
+	fmt.Printf("p95_wait_ms             %-14.2f %-14.2f %+0.2f\n", left.P95WaitMS, right.P95WaitMS, right.P95WaitMS-left.P95WaitMS)
+	fmt.Printf("energy_joules           %-14.2f %-14.2f %+0.2f\n", left.EnergyJoules, right.EnergyJoules, right.EnergyJoules-left.EnergyJoules)
+	fmt.Printf("active_worker_time_s    %-14.2f %-14.2f %+0.2f\n", left.ActiveWorkerTime, right.ActiveWorkerTime, right.ActiveWorkerTime-left.ActiveWorkerTime)
+}
+
+func replayPolicy(name string) (scheduler.Policy, error) {
+	switch name {
+	case "first-fit":
+		return scheduler.FirstFit{}, nil
+	case "best-fit":
+		return scheduler.BestFit{}, nil
+	case "bin-pack":
+		return scheduler.BinPack{}, nil
+	case "energy":
+		return scheduler.EnergyAware{}, nil
+	default:
+		return nil, fmt.Errorf("unsupported policy %q", name)
 	}
 }

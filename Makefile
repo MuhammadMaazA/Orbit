@@ -1,7 +1,7 @@
 GO ?= go
 BUF ?= buf
 
-.PHONY: build test vet race generate simulate benchmark-policy demo
+.PHONY: build test vet race generate simulate benchmark benchmark-policy demo
 
 build:
 	$(GO) build ./...
@@ -22,8 +22,11 @@ simulate:
 	$(GO) run ./cmd/simulator -seed 42 -jobs 100
 
 benchmark-policy:
-	$(GO) run ./cmd/simulator -seed 42 -jobs 100 -output artifacts/benchmarks/policy_results.csv
+	$(GO) run ./cmd/simulator -seed 42 -jobs 1000 -output artifacts/benchmarks/policy_results.csv
+	$(GO) run ./cmd/simulator -seed 84 -jobs 10000 -output artifacts/benchmarks/policy_results_10000.csv
 	$(GO) test -run '^$$' -bench 'BenchmarkPolicies|BenchmarkSimulation' -benchmem ./internal/scheduler ./internal/simulation
+
+benchmark: benchmark-policy
 
 demo:
 	powershell -ExecutionPolicy Bypass -File scripts/demo.ps1
