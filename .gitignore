@@ -5,3 +5,4 @@
 # Build artifacts
 *.test
 *.out
+.orbit-notes/

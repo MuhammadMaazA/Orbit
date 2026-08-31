@@ -1,6 +1,11 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+
+	"orbit/internal/model"
+	"orbit/internal/scheduler"
+)
 
 // Node represents a machine with a fixed resource capacity. TotalCPU and
 // TotalMemoryMB never change; AvailableCPU and AvailableMemoryMB track what
@@ -11,6 +16,8 @@ type Node struct {
 	AvailableCPU      int
 	TotalMemoryMB     int
 	AvailableMemoryMB int
+	TotalGPU          int
+	AvailableGPU      int
 }
 
 // Job describes the resources a unit of work needs to run.
@@ -18,12 +25,13 @@ type Job struct {
 	ID       string
 	CPU      int
 	MemoryMB int
+	GPU      int
 }
 
 // CanFit reports whether n currently has enough available CPU and memory
 // to run j. It does not modify n.
 func (n Node) CanFit(j Job) bool {
-	return n.AvailableCPU >= j.CPU && n.AvailableMemoryMB >= j.MemoryMB
+	return n.AvailableCPU >= j.CPU && n.AvailableMemoryMB >= j.MemoryMB && n.AvailableGPU >= j.GPU
 }
 
 // Allocate reserves j's resources on n, decreasing the node's available
@@ -40,8 +48,11 @@ func (n *Node) Allocate(j Job) error {
 		return fmt.Errorf("node %s cannot fit job %s (needs %d CPU / %d MB, has %d CPU / %d MB available)",
 			n.ID, j.ID, j.CPU, j.MemoryMB, n.AvailableCPU, n.AvailableMemoryMB)
 	}
-	n.AvailableCPU -= j.CPU
-	n.AvailableMemoryMB -= j.MemoryMB
+	resources := model.Resources{CPU: n.TotalCPU, MemoryMB: n.TotalMemoryMB, GPU: n.TotalGPU, AvailableCPU: n.AvailableCPU, AvailableMB: n.AvailableMemoryMB, AvailableGPU: n.AvailableGPU}
+	if err := resources.Allocate(model.Job{CPU: j.CPU, MemoryMB: j.MemoryMB, GPU: j.GPU}.Resources()); err != nil {
+		return fmt.Errorf("node %s cannot fit job %s: %w", n.ID, j.ID, err)
+	}
+	n.AvailableCPU, n.AvailableMemoryMB, n.AvailableGPU = resources.AvailableCPU, resources.AvailableMB, resources.AvailableGPU
 	return nil
 }
 
@@ -49,12 +60,11 @@ func (n *Node) Allocate(j Job) error {
 // that can fit job. It returns (-1, false) if none can. FirstFit only
 // inspects nodes; it never allocates.
 func FirstFit(nodes []Node, job Job) (int, bool) {
+	workers := make([]model.Worker, len(nodes))
 	for i, n := range nodes {
-		if n.CanFit(job) {
-			return i, true
-		}
+		workers[i] = model.Worker{ID: n.ID, Capacity: model.Resources{CPU: n.TotalCPU, MemoryMB: n.TotalMemoryMB, GPU: n.TotalGPU, AvailableCPU: n.AvailableCPU, AvailableMB: n.AvailableMemoryMB, AvailableGPU: n.AvailableGPU}}
 	}
-	return -1, false
+	return (scheduler.FirstFit{}).Select(workers, model.Job{CPU: job.CPU, MemoryMB: job.MemoryMB, GPU: job.GPU})
 }
 
 // Schedule finds the first node in nodes that can fit job, allocates the
