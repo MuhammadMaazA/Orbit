@@ -296,6 +296,22 @@ func (c *Controller) GetJob(id string) (JobView, bool) {
 	return JobView{Job: job.job, Status: job.status, Assignment: copyAssignment(job.assignment), Attempts: job.attempts}, true
 }
 
+func (c *Controller) ListJobs() []JobView {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	ids := make([]string, 0, len(c.jobs))
+	for id := range c.jobs {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	views := make([]JobView, 0, len(ids))
+	for _, id := range ids {
+		job := c.jobs[id]
+		views = append(views, JobView{Job: job.job, Status: job.status, Assignment: copyAssignment(job.assignment), Attempts: job.attempts})
+	}
+	return views
+}
+
 func (c *Controller) Stats() Stats {
 	c.mu.Lock()
 	defer c.mu.Unlock()

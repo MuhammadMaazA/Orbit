@@ -63,6 +63,12 @@ message JobStatusResponse {
   int32 attempt = 5;
 }
 
+message JobListRequest {}
+
+message JobListResponse {
+  repeated JobStatusResponse jobs = 1;
+}
+
 message WorkerStateRequest {
   string worker_id = 1;
 }
@@ -75,6 +81,7 @@ service OrbitController {
   rpc WorkerSession(stream WorkerSessionMessage) returns (stream ControllerSessionMessage);
   rpc Submit(Job) returns (Assignment);
   rpc GetJob(JobStatusRequest) returns (JobStatusResponse);
+  rpc ListJobs(JobListRequest) returns (JobListResponse);
   rpc DrainWorker(WorkerStateRequest) returns (WorkerStateResponse);
   rpc UndrainWorker(WorkerStateRequest) returns (WorkerStateResponse);
 }

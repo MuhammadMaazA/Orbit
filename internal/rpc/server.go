@@ -79,12 +79,30 @@ func (s *Server) GetJob(_ context.Context, request *v1.JobStatusRequest) (*v1.Jo
 	if !ok {
 		return nil, status.Error(codes.NotFound, "job not found")
 	}
-	response := &v1.JobStatusResponse{Job: &v1.Job{Id: view.Job.ID, Resources: &v1.ResourceRequest{Cpu: int32(view.Job.CPU), MemoryMb: int32(view.Job.MemoryMB), Gpu: int32(view.Job.GPU)}, Priority: int32(view.Job.Priority)}, Status: string(view.Status), Attempt: int32(view.Attempts)}
+	response := toJobStatus(view)
 	if view.Assignment != nil {
 		response.WorkerId = view.Assignment.WorkerID
 		response.AssignmentId = view.Assignment.ID
 	}
 	return response, nil
+}
+
+func (s *Server) ListJobs(_ context.Context, _ *v1.JobListRequest) (*v1.JobListResponse, error) {
+	views := s.controller.ListJobs()
+	response := &v1.JobListResponse{Jobs: make([]*v1.JobStatusResponse, 0, len(views))}
+	for _, view := range views {
+		response.Jobs = append(response.Jobs, toJobStatus(view))
+	}
+	return response, nil
+}
+
+func toJobStatus(view controller.JobView) *v1.JobStatusResponse {
+	response := &v1.JobStatusResponse{Job: &v1.Job{Id: view.Job.ID, Resources: &v1.ResourceRequest{Cpu: int32(view.Job.CPU), MemoryMb: int32(view.Job.MemoryMB), Gpu: int32(view.Job.GPU)}, Priority: int32(view.Job.Priority)}, Status: string(view.Status), Attempt: int32(view.Attempts)}
+	if view.Assignment != nil {
+		response.WorkerId = view.Assignment.WorkerID
+		response.AssignmentId = view.Assignment.ID
+	}
+	return response
 }
 
 func (s *Server) DrainWorker(_ context.Context, request *v1.WorkerStateRequest) (*v1.WorkerStateResponse, error) {

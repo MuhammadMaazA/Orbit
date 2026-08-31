@@ -48,22 +48,30 @@ func main() {
 	}
 	if os.Args[1] == "status" {
 		_ = flags.Parse(os.Args[2:])
-		if *id == "" {
-			slog.Error("job ID is required")
-			os.Exit(2)
-		}
 		connection, err := grpc.Dial(*address, grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if err != nil {
 			slog.Error("connect controller", "error", err)
 			os.Exit(1)
 		}
 		defer connection.Close()
-		status, err := v1.NewOrbitControllerClient(connection).GetJob(context.Background(), &v1.JobStatusRequest{JobId: *id})
-		if err != nil {
-			slog.Error("get job", "error", err)
+		client := v1.NewOrbitControllerClient(connection)
+		if *id == "" {
+			jobs, listErr := client.ListJobs(context.Background(), &v1.JobListRequest{})
+			if listErr != nil {
+				slog.Error("list jobs", "error", listErr)
+				os.Exit(1)
+			}
+			for _, job := range jobs.Jobs {
+				fmt.Printf("%s status=%s attempt=%d worker=%s assignment=%s\n", job.Job.Id, job.Status, job.Attempt, job.WorkerId, job.AssignmentId)
+			}
+			return
+		}
+		jobStatus, statusErr := client.GetJob(context.Background(), &v1.JobStatusRequest{JobId: *id})
+		if statusErr != nil {
+			slog.Error("get job", "error", statusErr)
 			os.Exit(1)
 		}
-		fmt.Printf("%s status=%s attempt=%d worker=%s assignment=%s\n", status.Job.Id, status.Status, status.Attempt, status.WorkerId, status.AssignmentId)
+		fmt.Printf("%s status=%s attempt=%d worker=%s assignment=%s\n", jobStatus.Job.Id, jobStatus.Status, jobStatus.Attempt, jobStatus.WorkerId, jobStatus.AssignmentId)
 		return
 	}
 	cpu := flags.Int("cpu", 1, "CPU request")
