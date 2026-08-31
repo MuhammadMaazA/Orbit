@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"log/slog"
 	"net"
 	"net/http"
@@ -25,9 +26,20 @@ func main() {
 	address := flag.String("addr", ":9000", "listen address")
 	metricsAddress := flag.String("metrics-addr", ":9090", "metrics and health listen address")
 	timeout := flag.Duration("worker-timeout", 5*time.Second, "worker heartbeat timeout")
+	policyName := flag.String("policy", "first-fit", "scheduling policy: first-fit, best-fit, or bin-pack")
+	maxAttempts := flag.Int("max-attempts", 3, "maximum attempts per job")
 	flag.Parse()
 
-	state, err := controller.New(scheduler.FirstFit{}, 3)
+	if *timeout <= 0 {
+		slog.Error("worker timeout must be positive")
+		os.Exit(2)
+	}
+	policy, err := policyForName(*policyName)
+	if err != nil {
+		slog.Error("invalid policy", "error", err)
+		os.Exit(2)
+	}
+	state, err := controller.New(policy, *maxAttempts)
 	if err != nil {
 		slog.Error("create controller", "error", err)
 		os.Exit(1)
@@ -81,4 +93,17 @@ func main() {
 	close(shutdown)
 	server.GracefulStop()
 	_ = httpServer.Shutdown(context.Background())
+}
+
+func policyForName(name string) (scheduler.Policy, error) {
+	switch name {
+	case "first-fit":
+		return scheduler.FirstFit{}, nil
+	case "best-fit":
+		return scheduler.BestFit{}, nil
+	case "bin-pack":
+		return scheduler.BinPack{}, nil
+	default:
+		return nil, fmt.Errorf("unsupported policy %q", name)
+	}
 }
