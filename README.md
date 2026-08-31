@@ -4,6 +4,18 @@ Orbit is a distributed cluster scheduler and deterministic workload replay engin
 
 It schedules heterogeneous CPU, memory, and GPU jobs over gRPC, detects worker loss, retries interrupted work, and fences stale completions. The replay engine runs the same versioned trace under different policies so scheduling choices can be compared without changing the workload.
 
+## Install
+
+```text
+go install github.com/MuhammadMaazA/Orbit/cmd/orbit@latest
+```
+
+Or download a prebuilt binary from the [releases page](https://github.com/MuhammadMaazA/Orbit/releases).
+
+```text
+orbit demo
+```
+
 ## Run it
 
 ```text
@@ -36,9 +48,9 @@ The comparison reports completion, makespan, wait percentiles, modelled energy, 
 ## Policies
 
 - `first-fit` selects the first feasible worker.
-- `best-fit` minimises remaining capacity after placement.
-- `bin-pack` prefers the most utilised feasible worker.
-- `energy` prefers an already active worker and otherwise uses bin-packing.
+- `best-fit` picks the feasible worker that would be left with the least headroom in its most-loaded resource (CPU, memory, or GPU, compared as a fraction of that worker's own capacity, not raw units).
+- `bin-pack` prefers the feasible worker whose most-loaded resource is already closest to full, by the same per-resource fraction.
+- `energy` prefers an already active worker by that measure, and otherwise falls back to bin-packing.
 
 Queued jobs have priorities with ageing. Workers can be drained for maintenance, and admission control can cap queued work.
 
@@ -46,7 +58,7 @@ Queued jobs have priorities with ageing. Workers can be drained for maintenance,
 
 Workers register with session IDs and send heartbeats. Lost workers cause active jobs to be retried. Completion is accepted only for the current assignment, worker session, and attempt. The controller can persist state in a JSONL event log and atomic snapshot; workers must register again after restart.
 
-Orbit provides at-least-once-style execution. It does not provide exactly-once execution, consensus, or controller high availability.
+This gives at-least-once execution: a single controller is the source of truth for assignment state, so a lost worker's jobs always get retried elsewhere rather than silently dropped.
 
 ## Benchmarks
 
@@ -69,8 +81,13 @@ internal/scheduler/ policy implementations
 internal/simulation/ discrete workload simulator
 internal/storage/    persistence
 internal/energy/     modelled power accounting
+internal/importer/   trace importers for external workload formats
 traces/              versioned replay workloads
 artifacts/           generated benchmark results
 ```
 
-Orbit is intentionally a single-controller project. It has no Kubernetes integration, external database, cloud deployment, frontend, or hardware power telemetry.
+Orbit is a single binary and a single controller by design: clone it, `go build`, and run a scheduler and a deterministic replay engine with nothing else to stand up first.
+
+## License
+
+[MIT](LICENSE)
