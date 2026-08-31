@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/MuhammadMaazA/Orbit/internal/model"
 	"github.com/MuhammadMaazA/Orbit/internal/scheduler"
 )
 
@@ -49,6 +50,40 @@ func TestTraceRejectsNegativeTimestamp(t *testing.T) {
 	trace := Trace{Version: Version, Events: []Event{{TimeMS: -1, Type: WorkerAdded, WorkerID: "worker-a", CPU: 4, MemoryMB: 4096}}}
 	if err := trace.Validate(); err == nil {
 		t.Fatal("expected negative timestamp to be rejected")
+	}
+}
+
+func TestDecisionCandidatesExplainSelection(t *testing.T) {
+	trace, err := Load(strings.NewReader(`{"version":1,"events":[{"time_ms":0,"type":"worker_added","worker_id":"worker-a","cpu":16,"memory_mb":16384,"gpu":2},{"time_ms":0,"type":"worker_added","worker_id":"worker-b","cpu":4,"memory_mb":4096,"gpu":0},{"time_ms":0,"type":"worker_added","worker_id":"worker-c","cpu":4,"memory_mb":4096,"gpu":1},{"time_ms":0,"type":"job_submitted","job_id":"job-1","cpu":2,"memory_mb":1024,"gpu":1,"duration_ms":50}]}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := Run(trace, Config{Policy: scheduler.BestFit{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Decisions) != 1 {
+		t.Fatalf("decisions = %+v", result.Decisions)
+	}
+	decision := result.Decisions[0]
+	if decision.Selected != "worker-c" {
+		t.Fatalf("selected = %q, want worker-c", decision.Selected)
+	}
+	if len(decision.Candidates) != 3 {
+		t.Fatalf("candidates = %+v", decision.Candidates)
+	}
+	byID := make(map[string]Candidate, len(decision.Candidates))
+	for _, candidate := range decision.Candidates {
+		byID[candidate.WorkerID] = candidate
+	}
+	if !byID["worker-a"].Feasible || byID["worker-a"].Residual.GPU != 1 {
+		t.Fatalf("worker-a candidate = %+v", byID["worker-a"])
+	}
+	if byID["worker-b"].Feasible || byID["worker-b"].Reason == "" {
+		t.Fatalf("worker-b candidate = %+v, want infeasible with a reason", byID["worker-b"])
+	}
+	if !byID["worker-c"].Feasible || byID["worker-c"].Residual != (model.ResourceRequest{CPU: 2, MemoryMB: 3072, GPU: 0}) {
+		t.Fatalf("worker-c candidate = %+v", byID["worker-c"])
 	}
 }
 

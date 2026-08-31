@@ -292,10 +292,52 @@ func printComparison(trace replay.Trace, baselineName, candidateName string, bas
 	for index := 0; index < len(left.Decisions) && index < len(right.Decisions); index++ {
 		baselineDecision, candidateDecision := left.Decisions[index], right.Decisions[index]
 		if baselineDecision.JobID != candidateDecision.JobID || baselineDecision.Selected != candidateDecision.Selected {
-			fmt.Printf("first_divergence           t=%dms job=%s baseline=%s candidate=%s\n", baselineDecision.TimeMS, baselineDecision.JobID, baselineDecision.Selected, candidateDecision.Selected)
+			fmt.Printf("\nFIRST DIVERGENCE - job=%s (t=%.1fs)\n\n", baselineDecision.JobID, float64(baselineDecision.TimeMS)/1000)
+			printDecision(baselineName, baselineDecision)
+			fmt.Println()
+			printDecision(candidateName, candidateDecision)
 			return
 		}
 	}
+}
+
+// printDecision explains how a policy arrived at its choice for one job:
+// the worker it picked, plus (for capacity-driven policies) how every
+// candidate worker was evaluated and why the loser(s) were passed over.
+func printDecision(policyName string, decision replay.Decision) {
+	fmt.Printf("%s -> %s\n", policyName, decision.Selected)
+	if policyName == "first-fit" {
+		fmt.Println("  first feasible worker")
+		return
+	}
+	for _, candidate := range decision.Candidates {
+		if candidate.Feasible {
+			fmt.Printf("  %s: feasible, residual=cpu:%d mem:%d gpu:%d\n", candidate.WorkerID, candidate.Residual.CPU, candidate.Residual.MemoryMB, candidate.Residual.GPU)
+		} else {
+			fmt.Printf("  %s: rejected, %s\n", candidate.WorkerID, candidate.Reason)
+		}
+	}
+	fmt.Printf("%s selected %s because %s\n", policyName, decision.Selected, explainSelection(policyName, decision))
+}
+
+func explainSelection(policyName string, decision replay.Decision) string {
+	switch policyName {
+	case "best-fit":
+		return "it left the least residual capacity among feasible workers (tightest fit)"
+	case "bin-pack":
+		return "it was the most-utilized feasible worker, consolidating load onto fewer machines"
+	case "energy":
+		for _, candidate := range decision.Candidates {
+			if candidate.WorkerID != decision.Selected {
+				continue
+			}
+			if candidate.Active {
+				return "it was the most-utilized already-active feasible worker, avoiding powering on an idle one"
+			}
+			return "no active worker had capacity for this job, so it fell back to the most-utilized feasible worker overall"
+		}
+	}
+	return "it best matched the policy's selection criteria"
 }
 
 func replayPolicy(name string) (scheduler.Policy, error) {

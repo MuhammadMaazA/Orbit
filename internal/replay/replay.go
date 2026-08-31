@@ -22,11 +22,23 @@ type Config struct {
 }
 
 type Decision struct {
-	TimeMS   int64
-	JobID    string
-	Policy   string
-	Eligible []string
-	Selected string
+	TimeMS     int64
+	JobID      string
+	Policy     string
+	Selected   string
+	Candidates []Candidate
+}
+
+// Candidate records how one worker was evaluated for a scheduling decision:
+// whether it was feasible for the job, why it was rejected if not, whether
+// it already had work running on it, and (when feasible) the capacity that
+// would remain after the job landed there.
+type Candidate struct {
+	WorkerID string
+	Feasible bool
+	Active   bool
+	Reason   string
+	Residual model.ResourceRequest
 }
 
 type Result struct {
@@ -160,19 +172,18 @@ func schedule(at int64, config Config, workers map[string]model.Worker, queue *[
 			break
 		}
 		worker := list[index]
-		eligible := make([]string, 0, len(list))
+		request := model.Job{CPU: job.CPU, MemoryMB: job.MemoryMB, GPU: job.GPU}.Resources()
+		candidates := make([]Candidate, 0, len(list))
 		for _, candidate := range list {
-			if candidate.Capacity.CanFit(model.Job{CPU: job.CPU, MemoryMB: job.MemoryMB, GPU: job.GPU}.Resources()) {
-				eligible = append(eligible, candidate.ID)
-			}
+			candidates = append(candidates, evaluateCandidate(candidate, request))
 		}
-		if err := worker.Capacity.Allocate(model.Job{CPU: job.CPU, MemoryMB: job.MemoryMB, GPU: job.GPU}.Resources()); err != nil {
+		if err := worker.Capacity.Allocate(request); err != nil {
 			break
 		}
 		workers[worker.ID] = worker
 		active[job.JobID] = running{job: job, worker: worker.ID, attempt: 1, start: at, end: at + job.DurationMS}
 		*queue = (*queue)[1:]
-		result.Decisions = append(result.Decisions, Decision{TimeMS: at, JobID: job.JobID, Policy: config.Policy.Name(), Eligible: eligible, Selected: worker.ID})
+		result.Decisions = append(result.Decisions, Decision{TimeMS: at, JobID: job.JobID, Policy: config.Policy.Name(), Selected: worker.ID, Candidates: candidates})
 		energyModel.Observe(worker.ID, worker.Capacity, float64(at)/1000)
 	}
 }
@@ -191,6 +202,44 @@ func finish(active *map[string]running, workers map[string]model.Worker, complet
 		*waits = append(*waits, job.start-job.job.TimeMS)
 		delete(*active, id)
 	}
+}
+
+func evaluateCandidate(worker model.Worker, request model.ResourceRequest) Candidate {
+	candidate := Candidate{
+		WorkerID: worker.ID,
+		Active:   workerActive(worker.Capacity),
+		Reason:   feasibilityReason(worker.Capacity, request),
+	}
+	candidate.Feasible = candidate.Reason == ""
+	if candidate.Feasible {
+		candidate.Residual = model.ResourceRequest{
+			CPU:      worker.Capacity.Available.CPU - request.CPU,
+			MemoryMB: worker.Capacity.Available.MemoryMB - request.MemoryMB,
+			GPU:      worker.Capacity.Available.GPU - request.GPU,
+		}
+	}
+	return candidate
+}
+
+func feasibilityReason(capacity model.Capacity, request model.ResourceRequest) string {
+	var short []string
+	if capacity.Available.CPU < request.CPU {
+		short = append(short, "CPU")
+	}
+	if capacity.Available.MemoryMB < request.MemoryMB {
+		short = append(short, "memory")
+	}
+	if capacity.Available.GPU < request.GPU {
+		short = append(short, "GPU")
+	}
+	if len(short) == 0 {
+		return ""
+	}
+	return "insufficient " + strings.Join(short, ", ")
+}
+
+func workerActive(capacity model.Capacity) bool {
+	return capacity.Available.CPU < capacity.Total.CPU || capacity.Available.MemoryMB < capacity.Total.MemoryMB || capacity.Available.GPU < capacity.Total.GPU
 }
 
 func scaledCapacity(event Event, workerScale, gpuScale int) model.Capacity {
