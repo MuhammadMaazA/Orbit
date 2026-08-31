@@ -9,6 +9,7 @@ import (
 
 	"orbit/internal/model"
 	"orbit/internal/scheduler"
+	"orbit/internal/storage"
 )
 
 type JobStatus string
@@ -26,6 +27,7 @@ type Config struct {
 	MaxAttempts   int
 	MaxQueuedJobs int
 	AgingInterval time.Duration
+	Store         storage.Store
 }
 
 type Assignment struct {
@@ -82,6 +84,7 @@ type Controller struct {
 	nextSeq     uint64
 	now         func() time.Time
 	requeued    uint64
+	store       storage.Store
 }
 
 func New(policy scheduler.Policy, maxAttempts int) (*Controller, error) {
@@ -101,7 +104,7 @@ func NewWithConfig(policy scheduler.Policy, config Config) (*Controller, error) 
 	if config.AgingInterval <= 0 {
 		return nil, fmt.Errorf("controller: aging interval must be positive")
 	}
-	return &Controller{
+	controller := &Controller{
 		policy:      policy,
 		maxAttempts: config.MaxAttempts,
 		workers:     make(map[string]*workerState),
@@ -109,7 +112,13 @@ func NewWithConfig(policy scheduler.Policy, config Config) (*Controller, error) 
 		maxQueued:   config.MaxQueuedJobs,
 		aging:       config.AgingInterval,
 		now:         time.Now,
-	}, nil
+	}
+	if config.Store != nil {
+		if err := controller.SetStore(config.Store); err != nil {
+			return nil, err
+		}
+	}
+	return controller, nil
 }
 
 func (c *Controller) RegisterWorker(id, session string, capacity model.Capacity) ([]Assignment, error) {
@@ -125,7 +134,8 @@ func (c *Controller) RegisterWorker(id, session string, capacity model.Capacity)
 		c.expireWorkerLocked(id, previous.session)
 	}
 	c.workers[id] = &workerState{id: id, session: session, capacity: capacity, seen: c.now()}
-	return c.scheduleLocked(), nil
+	assignments := c.scheduleLocked()
+	return assignments, c.persistLocked("worker_registered")
 }
 
 func (c *Controller) DrainWorker(id string) error {
@@ -136,7 +146,7 @@ func (c *Controller) DrainWorker(id string) error {
 		return fmt.Errorf("drain worker %q: not found", id)
 	}
 	worker.draining = true
-	return nil
+	return c.persistLocked("worker_drained")
 }
 
 func (c *Controller) UndrainWorker(id string) ([]Assignment, error) {
@@ -147,7 +157,8 @@ func (c *Controller) UndrainWorker(id string) ([]Assignment, error) {
 		return nil, fmt.Errorf("undrain worker %q: not found", id)
 	}
 	worker.draining = false
-	return c.scheduleLocked(), nil
+	assignments := c.scheduleLocked()
+	return assignments, c.persistLocked("worker_undrained")
 }
 
 func (c *Controller) Heartbeat(workerID, session string, at time.Time) error {
@@ -178,7 +189,8 @@ func (c *Controller) ExpireWorkers(now time.Time, timeout time.Duration) ([]Assi
 			c.expireWorkerLocked(id, worker.session)
 		}
 	}
-	return c.scheduleLocked(), nil
+	assignments := c.scheduleLocked()
+	return assignments, c.persistLocked("workers_expired")
 }
 
 func (c *Controller) Submit(job model.Job) ([]Assignment, error) {
@@ -198,7 +210,8 @@ func (c *Controller) Submit(job model.Job) ([]Assignment, error) {
 	}
 	c.jobs[job.ID] = &jobState{job: job, status: Queued}
 	c.enqueueLocked(c.jobs[job.ID])
-	return c.scheduleLocked(), nil
+	assignments := c.scheduleLocked()
+	return assignments, c.persistLocked("job_submitted")
 }
 
 func (c *Controller) Complete(assignment Assignment, success bool) ([]Assignment, bool, error) {
@@ -224,7 +237,8 @@ func (c *Controller) Complete(assignment Assignment, success bool) ([]Assignment
 	} else {
 		job.status = Failed
 	}
-	return c.scheduleLocked(), true, nil
+	assignments := c.scheduleLocked()
+	return assignments, true, c.persistLocked("job_completed")
 }
 
 func (c *Controller) WorkerLost(workerID, session string) ([]Assignment, error) {
@@ -235,7 +249,8 @@ func (c *Controller) WorkerLost(workerID, session string) ([]Assignment, error) 
 		return nil, nil
 	}
 	c.expireWorkerLocked(workerID, session)
-	return c.scheduleLocked(), nil
+	assignments := c.scheduleLocked()
+	return assignments, c.persistLocked("worker_lost")
 }
 
 func (c *Controller) expireWorkerLocked(workerID, session string) {

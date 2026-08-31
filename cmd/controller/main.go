@@ -20,6 +20,7 @@ import (
 	"orbit/internal/rpc"
 	v1 "orbit/internal/rpc/orbitv1/orbit/v1"
 	"orbit/internal/scheduler"
+	"orbit/internal/storage"
 )
 
 func main() {
@@ -30,6 +31,7 @@ func main() {
 	maxAttempts := flag.Int("max-attempts", 3, "maximum attempts per job")
 	maxQueuedJobs := flag.Int("max-queued-jobs", 1_000, "maximum queued jobs; zero disables the limit")
 	agingInterval := flag.Duration("aging-interval", 30*time.Second, "time required for a queued job to gain one effective priority level")
+	dataDir := flag.String("data-dir", "", "directory for WAL and snapshots; empty disables persistence")
 	flag.Parse()
 
 	if *timeout <= 0 {
@@ -41,7 +43,16 @@ func main() {
 		slog.Error("invalid policy", "error", err)
 		os.Exit(2)
 	}
-	state, err := controller.NewWithConfig(policy, controller.Config{MaxAttempts: *maxAttempts, MaxQueuedJobs: *maxQueuedJobs, AgingInterval: *agingInterval})
+	config := controller.Config{MaxAttempts: *maxAttempts, MaxQueuedJobs: *maxQueuedJobs, AgingInterval: *agingInterval}
+	if *dataDir != "" {
+		store, storeErr := storage.NewFileStore(*dataDir)
+		if storeErr != nil {
+			slog.Error("create store", "error", storeErr)
+			os.Exit(1)
+		}
+		config.Store = store
+	}
+	state, err := controller.NewWithConfig(policy, config)
 	if err != nil {
 		slog.Error("create controller", "error", err)
 		os.Exit(1)
