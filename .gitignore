@@ -6,3 +6,5 @@
 *.test
 *.out
 .orbit-notes/
+/README.md
+/docs/
