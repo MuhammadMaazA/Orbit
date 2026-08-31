@@ -23,6 +23,7 @@ import (
 
 func main() {
 	address := flag.String("addr", ":9000", "listen address")
+	metricsAddress := flag.String("metrics-addr", ":9090", "metrics and health listen address")
 	timeout := flag.Duration("worker-timeout", 5*time.Second, "worker heartbeat timeout")
 	flag.Parse()
 
@@ -44,7 +45,7 @@ func main() {
 	httpMux.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{}))
 	httpMux.HandleFunc("/healthz", func(response http.ResponseWriter, _ *http.Request) { response.WriteHeader(http.StatusOK) })
 	httpMux.HandleFunc("/readyz", func(response http.ResponseWriter, _ *http.Request) { response.WriteHeader(http.StatusOK) })
-	httpServer := &http.Server{Addr: ":9090", Handler: httpMux}
+	httpServer := &http.Server{Addr: *metricsAddress, Handler: httpMux}
 
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
@@ -55,6 +56,8 @@ func main() {
 			if _, err := state.ExpireWorkers(time.Now(), *timeout); err != nil {
 				slog.Error("expire workers", "error", err)
 			}
+			stats := state.Stats()
+			instrumentation.SetGauges(stats.Workers, stats.Queued, stats.Running)
 		}
 	}()
 	go func() {

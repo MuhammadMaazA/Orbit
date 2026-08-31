@@ -11,6 +11,12 @@ type Metrics struct {
 	Running       prometheus.Gauge
 }
 
+func (m *Metrics) SetGauges(workers, queued, running int) {
+	m.Workers.Set(float64(workers))
+	m.Queued.Set(float64(queued))
+	m.Running.Set(float64(running))
+}
+
 func New(reg prometheus.Registerer) *Metrics {
 	m := &Metrics{
 		JobsSubmitted: prometheus.NewCounter(prometheus.CounterOpts{Name: "orbit_jobs_submitted_total", Help: "Jobs accepted by the controller."}),

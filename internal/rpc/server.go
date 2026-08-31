@@ -160,9 +160,7 @@ func (s *Server) removeSession(workerID string, session *workerSession) {
 
 func (s *Server) updateMetrics() {
 	stats := s.controller.Stats()
-	s.metrics.Workers.Set(float64(stats.Workers))
-	s.metrics.Queued.Set(float64(stats.Queued))
-	s.metrics.Running.Set(float64(stats.Running))
+	s.metrics.SetGauges(stats.Workers, stats.Queued, stats.Running)
 }
 
 var now = func() time.Time { return time.Now() }

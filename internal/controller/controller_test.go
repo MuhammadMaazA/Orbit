@@ -33,6 +33,29 @@ func TestControllerExpiresWorkersAfterHeartbeatTimeout(t *testing.T) {
 	}
 }
 
+func TestControllerFailsJobAfterMaxAttempts(t *testing.T) {
+	c, err := New(scheduler.FirstFit{}, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assignments, err := c.RegisterWorker("worker-a", "session-a", testCapacity(2))
+	if err != nil {
+		t.Fatal(err)
+	}
+	newAssignments, err := c.Submit(model.Job{ID: "job-1", CPU: 2, MemoryMB: 512})
+	if err != nil {
+		t.Fatal(err)
+	}
+	assignments = append(assignments, newAssignments...)
+	if _, err := c.WorkerLost(assignments[0].WorkerID, assignments[0].SessionID); err != nil {
+		t.Fatal(err)
+	}
+	view, _ := c.GetJob("job-1")
+	if view.Status != Failed || view.Attempts != 1 {
+		t.Fatalf("job view = %+v", view)
+	}
+}
+
 func TestControllerQueuesAndReschedules(t *testing.T) {
 	c, err := New(scheduler.FirstFit{}, 2)
 	if err != nil {

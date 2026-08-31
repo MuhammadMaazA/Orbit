@@ -1,0 +1,8 @@
+{
+  "controller": "127.0.0.1:19000",
+  "metrics": "127.0.0.1:19090",
+  "workers": [
+    {"id": "worker-a", "cpu": 4, "memory_mb": 4096, "gpu": 0},
+    {"id": "worker-b", "cpu": 4, "memory_mb": 4096, "gpu": 1}
+  ]
+}

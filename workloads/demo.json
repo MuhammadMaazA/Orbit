@@ -1,0 +1,4 @@
+[
+  {"id": "demo-1", "cpu": 1, "memory_mb": 512, "gpu": 0, "duration": "10s"},
+  {"id": "demo-2", "cpu": 2, "memory_mb": 1024, "gpu": 0, "duration": "2s"}
+]
