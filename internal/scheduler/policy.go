@@ -28,8 +28,6 @@ type BestFit struct{}
 
 func (BestFit) Name() string { return "best-fit" }
 
-// BestFit chooses the eligible worker with the smallest remaining CPU after
-// placement, then memory and GPU, making ties stable by slice order.
 func (BestFit) Select(workers []model.Worker, job model.Job) (int, bool) {
 	best := -1
 	for i, worker := range workers {
@@ -47,8 +45,6 @@ type BinPack struct{}
 
 func (BinPack) Name() string { return "bin-pack" }
 
-// BinPack places work on the worker with the highest current utilization,
-// packing jobs tightly and preserving larger workers for later jobs.
 func (BinPack) Select(workers []model.Worker, job model.Job) (int, bool) {
 	best := -1
 	for i, worker := range workers {
@@ -75,8 +71,6 @@ func lessRemaining(a, b, request model.Resources) bool {
 }
 
 func moreUtilized(a, b model.Resources) bool {
-	// Cross multiplication avoids floating-point tie-breaking. A zero-sized
-	// worker is never preferred over a non-zero worker.
 	aUsed, aTotal := (a.CPU-a.AvailableCPU)+(a.MemoryMB-a.AvailableMB)+(a.GPU-a.AvailableGPU), a.CPU+a.MemoryMB+a.GPU
 	bUsed, bTotal := (b.CPU-b.AvailableCPU)+(b.MemoryMB-b.AvailableMB)+(b.GPU-b.AvailableGPU), b.CPU+b.MemoryMB+b.GPU
 	if aTotal == 0 || bTotal == 0 {
