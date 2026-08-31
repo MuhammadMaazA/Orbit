@@ -26,4 +26,4 @@ benchmark-policy:
 	$(GO) test -run '^$$' -bench 'BenchmarkPolicies|BenchmarkSimulation' -benchmem ./internal/scheduler ./internal/simulation
 
 demo:
-	$(GO) run ./cmd/controller -addr 127.0.0.1:19000
+	powershell -ExecutionPolicy Bypass -File scripts/demo.ps1
