@@ -7,9 +7,9 @@ import (
 	"strconv"
 	"strings"
 
-	"orbit/internal/energy"
-	"orbit/internal/model"
-	"orbit/internal/scheduler"
+	"github.com/MuhammadMaazA/Orbit/internal/energy"
+	"github.com/MuhammadMaazA/Orbit/internal/model"
+	"github.com/MuhammadMaazA/Orbit/internal/scheduler"
 )
 
 type Config struct {
@@ -72,19 +72,21 @@ func Run(trace Trace, config Config) (Result, error) {
 	result := Result{Policy: config.Policy.Name(), Jobs: len(jobEvents(trace))}
 	events := append([]Event(nil), trace.Events...)
 	if config.InjectFailure != "" {
-		if id, at, ok := parseFailure(config.InjectFailure); ok {
-			duplicate := false
-			for _, event := range events {
-				if event.TimeMS == at && event.Type == WorkerFailed && event.WorkerID == id {
-					duplicate = true
-					break
-				}
-			}
-			if !duplicate {
-				events = append(events, Event{TimeMS: at, Type: WorkerFailed, WorkerID: id})
-			}
-			sort.SliceStable(events, func(i, j int) bool { return events[i].TimeMS < events[j].TimeMS })
+		id, at, err := parseFailure(config.InjectFailure)
+		if err != nil {
+			return Result{}, err
 		}
+		duplicate := false
+		for _, event := range events {
+			if event.TimeMS == at && event.Type == WorkerFailed && event.WorkerID == id {
+				duplicate = true
+				break
+			}
+		}
+		if !duplicate {
+			events = append(events, Event{TimeMS: at, Type: WorkerFailed, WorkerID: id})
+		}
+		sort.SliceStable(events, func(i, j int) bool { return events[i].TimeMS < events[j].TimeMS })
 	}
 	last := int64(0)
 	for _, event := range events {
@@ -158,7 +160,6 @@ func schedule(at int64, config Config, workers map[string]model.Worker, queue *[
 			break
 		}
 		worker := list[index]
-		before := worker.Capacity
 		eligible := make([]string, 0, len(list))
 		for _, candidate := range list {
 			if candidate.Capacity.CanFit(model.Job{CPU: job.CPU, MemoryMB: job.MemoryMB, GPU: job.GPU}.Resources()) {
@@ -172,9 +173,6 @@ func schedule(at int64, config Config, workers map[string]model.Worker, queue *[
 		active[job.JobID] = running{job: job, worker: worker.ID, attempt: 1, start: at, end: at + job.DurationMS}
 		*queue = (*queue)[1:]
 		result.Decisions = append(result.Decisions, Decision{TimeMS: at, JobID: job.JobID, Policy: config.Policy.Name(), Eligible: eligible, Selected: worker.ID})
-		if config.Explain {
-			_ = before
-		}
 		energyModel.Observe(worker.ID, worker.Capacity, float64(at)/1000)
 	}
 }
@@ -208,17 +206,17 @@ func jobEvents(trace Trace) []Event {
 	}
 	return result
 }
-func parseFailure(value string) (string, int64, bool) {
+func parseFailure(value string) (string, int64, error) {
 	parts := strings.Split(value, "@")
 	if len(parts) != 2 || parts[0] == "" {
-		return "", 0, false
+		return "", 0, fmt.Errorf("replay: invalid failure %q; expected worker-id@seconds", value)
 	}
 	raw := strings.TrimSuffix(parts[1], "s")
 	seconds, err := strconv.ParseFloat(raw, 64)
 	if err != nil || seconds < 0 {
-		return "", 0, false
+		return "", 0, fmt.Errorf("replay: invalid failure time %q", parts[1])
 	}
-	return parts[0], int64(seconds * 1000), true
+	return parts[0], int64(seconds * 1000), nil
 }
 func setPercentiles(result *Result, values []int64) {
 	if len(values) == 0 {

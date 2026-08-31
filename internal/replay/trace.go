@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 
-	"orbit/internal/model"
+	"github.com/MuhammadMaazA/Orbit/internal/model"
 )
 
 const Version = 1
@@ -63,6 +63,9 @@ func (t Trace) Validate() error {
 	workers := make(map[string]bool)
 	jobs := make(map[string]bool)
 	for i, event := range t.Events {
+		if event.TimeMS < 0 {
+			return fmt.Errorf("trace event %d: negative timestamp", i)
+		}
 		if event.TimeMS < last {
 			return fmt.Errorf("trace event %d: timestamp is not monotonic", i)
 		}

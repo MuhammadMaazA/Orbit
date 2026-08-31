@@ -2,23 +2,45 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log/slog"
 	"os"
 
+	"github.com/MuhammadMaazA/Orbit/internal/energy"
+	"github.com/MuhammadMaazA/Orbit/internal/importer"
+	"github.com/MuhammadMaazA/Orbit/internal/replay"
+	v1 "github.com/MuhammadMaazA/Orbit/internal/rpc/orbitv1/orbit/v1"
+	"github.com/MuhammadMaazA/Orbit/internal/scheduler"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	"orbit/internal/energy"
-	"orbit/internal/replay"
-	v1 "orbit/internal/rpc/orbitv1/orbit/v1"
-	"orbit/internal/scheduler"
 )
 
+const version = "v0.1.0"
+
 func main() {
-	if len(os.Args) < 2 || (os.Args[1] != "submit" && os.Args[1] != "status" && os.Args[1] != "drain" && os.Args[1] != "undrain" && os.Args[1] != "replay" && os.Args[1] != "compare") {
-		fmt.Fprintln(os.Stderr, "usage: orbit submit|status|drain|undrain|replay|compare [flags]")
-		os.Exit(2)
+	if len(os.Args) < 2 {
+		usage()
+	}
+	if os.Args[1] == "version" {
+		fmt.Println("orbit", version)
+		return
+	}
+	if os.Args[1] == "inspect" {
+		runInspect(os.Args[2:])
+		return
+	}
+	if os.Args[1] == "import" {
+		runImport(os.Args[2:])
+		return
+	}
+	if os.Args[1] == "demo" {
+		runDemo()
+		return
+	}
+	if os.Args[1] != "submit" && os.Args[1] != "status" && os.Args[1] != "drain" && os.Args[1] != "undrain" && os.Args[1] != "replay" && os.Args[1] != "compare" {
+		usage()
 	}
 	if os.Args[1] == "replay" || os.Args[1] == "compare" {
 		runReplayCommand(os.Args[1], os.Args[2:])
@@ -106,6 +128,84 @@ func main() {
 	} else {
 		fmt.Printf("assigned %s to %s\n", assignment.Id, assignment.WorkerId)
 	}
+}
+
+func usage() {
+	fmt.Fprintln(os.Stderr, "usage: orbit version|inspect|import|demo|submit|status|drain|undrain|replay|compare [flags]")
+	os.Exit(2)
+}
+
+func runInspect(arguments []string) {
+	flags := flag.NewFlagSet("inspect", flag.ExitOnError)
+	tracePath := flags.String("trace", "", "versioned trace JSON path")
+	flags.Parse(arguments)
+	trace, err := loadTrace(*tracePath)
+	if err != nil {
+		slog.Error("inspect trace", "error", err)
+		os.Exit(1)
+	}
+	counts := make(map[string]int)
+	for _, event := range trace.Events {
+		counts[event.Type]++
+	}
+	fmt.Printf("version=%d events=%d worker_added=%d jobs=%d failures=%d\n", trace.Version, len(trace.Events), counts[replay.WorkerAdded], counts[replay.JobSubmitted], counts[replay.WorkerFailed]+counts[replay.WorkerRemoved])
+}
+
+func runImport(arguments []string) {
+	flags := flag.NewFlagSet("import", flag.ExitOnError)
+	outputPath := flags.String("output", "", "output trace JSON path")
+	flags.Parse(arguments)
+	if *outputPath == "" || flags.NArg() != 2 || flags.Arg(0) != "normalized" {
+		slog.Error("usage: orbit import --output trace.json normalized input.csv")
+		os.Exit(2)
+	}
+	input, err := os.Open(flags.Arg(1))
+	if err != nil {
+		slog.Error("open CSV", "error", err)
+		os.Exit(1)
+	}
+	defer input.Close()
+	trace, stats, err := importer.NormalizedCSV(input)
+	if err != nil {
+		slog.Error("import CSV", "error", err)
+		os.Exit(1)
+	}
+	output, err := os.Create(*outputPath)
+	if err != nil {
+		slog.Error("create trace", "error", err)
+		os.Exit(1)
+	}
+	encoder := json.NewEncoder(output)
+	encoder.SetIndent("", "  ")
+	err = encoder.Encode(trace)
+	closeErr := output.Close()
+	if err != nil || closeErr != nil {
+		if err == nil {
+			err = closeErr
+		}
+		slog.Error("write trace", "error", err)
+		os.Exit(1)
+	}
+	fmt.Printf("imported_rows=%d events=%d output=%s\n", stats.Rows, len(trace.Events), *outputPath)
+}
+
+func runDemo() {
+	fmt.Println("policy comparison")
+	runReplayCommand("compare", []string{"-trace", "traces/heterogeneous.json", "-baseline", "first-fit", "-candidate", "energy"})
+	fmt.Println("failure replay")
+	runReplayCommand("replay", []string{"-trace", "traces/failure-heavy.json", "-policy", "best-fit", "-explain"})
+}
+
+func loadTrace(path string) (replay.Trace, error) {
+	if path == "" {
+		return replay.Trace{}, fmt.Errorf("trace is required")
+	}
+	file, err := os.Open(path)
+	if err != nil {
+		return replay.Trace{}, fmt.Errorf("open trace: %w", err)
+	}
+	defer file.Close()
+	return replay.Load(file)
 }
 
 func runReplayCommand(command string, arguments []string) {
