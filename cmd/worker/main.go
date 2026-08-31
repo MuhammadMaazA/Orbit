@@ -13,6 +13,7 @@ import (
 
 	v1 "github.com/MuhammadMaazA/Orbit/internal/rpc/orbitv1/orbit/v1"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials/insecure"
 )
 
@@ -53,11 +54,14 @@ func runSession(parent context.Context, address, id string, cpu, memory, gpu int
 
 	dialContext, cancel := context.WithTimeout(parent, 3*time.Second)
 	defer cancel()
-	connection, err := grpc.DialContext(dialContext, address, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
+	connection, err := grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return fmt.Errorf("connect controller: %w", err)
 	}
 	defer connection.Close()
+	if err := waitUntilReady(dialContext, connection); err != nil {
+		return fmt.Errorf("connect controller: %w", err)
+	}
 	stream, err := v1.NewOrbitControllerClient(connection).WorkerSession(sessionContext)
 	if err != nil {
 		return fmt.Errorf("open worker session: %w", err)
@@ -83,6 +87,19 @@ func runSession(parent context.Context, address, id string, cpu, memory, gpu int
 			continue
 		}
 		go completeAfter(sessionContext, assignment, duration, send)
+	}
+}
+
+func waitUntilReady(ctx context.Context, connection *grpc.ClientConn) error {
+	connection.Connect()
+	for {
+		state := connection.GetState()
+		if state == connectivity.Ready {
+			return nil
+		}
+		if !connection.WaitForStateChange(ctx, state) {
+			return ctx.Err()
+		}
 	}
 }
 

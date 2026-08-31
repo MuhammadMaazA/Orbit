@@ -55,7 +55,7 @@ func main() {
 			slog.Error("worker ID is required")
 			os.Exit(2)
 		}
-		connection, err := grpc.Dial(*address, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		connection, err := grpc.NewClient(*address, grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if err != nil {
 			slog.Error("connect controller", "error", err)
 			os.Exit(1)
@@ -77,7 +77,7 @@ func main() {
 	}
 	if os.Args[1] == "status" {
 		_ = flags.Parse(os.Args[2:])
-		connection, err := grpc.Dial(*address, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		connection, err := grpc.NewClient(*address, grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if err != nil {
 			slog.Error("connect controller", "error", err)
 			os.Exit(1)
@@ -112,7 +112,7 @@ func main() {
 		slog.Error("job ID is required")
 		os.Exit(2)
 	}
-	connection, err := grpc.Dial(*address, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	connection, err := grpc.NewClient(*address, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		slog.Error("connect controller", "error", err)
 		os.Exit(1)

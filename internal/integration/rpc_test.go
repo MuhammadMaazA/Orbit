@@ -32,7 +32,7 @@ func TestControllerRPCSubmitAndStatus(t *testing.T) {
 	go func() { _ = server.Serve(listener) }()
 	t.Cleanup(func() { server.Stop(); _ = listener.Close() })
 	dialer := func(context.Context, string) (net.Conn, error) { return listener.Dial() }
-	connection, err := grpc.DialContext(context.Background(), "bufnet", grpc.WithContextDialer(dialer), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	connection, err := grpc.NewClient("passthrough:///bufnet", grpc.WithContextDialer(dialer), grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -60,7 +60,7 @@ func TestWorkerLossDispatchesRetryToAnotherSession(t *testing.T) {
 	t.Cleanup(func() { server.Stop(); _ = listener.Close() })
 	dialer := func(context.Context, string) (net.Conn, error) { return listener.Dial() }
 	connect := func() *grpc.ClientConn {
-		connection, err := grpc.DialContext(context.Background(), "bufnet", grpc.WithContextDialer(dialer), grpc.WithTransportCredentials(insecure.NewCredentials()))
+		connection, err := grpc.NewClient("passthrough:///bufnet", grpc.WithContextDialer(dialer), grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if err != nil {
 			t.Fatal(err)
 		}
