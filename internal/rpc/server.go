@@ -6,12 +6,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/MuhammadMaazA/Orbit/internal/controller"
+	"github.com/MuhammadMaazA/Orbit/internal/metrics"
+	"github.com/MuhammadMaazA/Orbit/internal/model"
+	v1 "github.com/MuhammadMaazA/Orbit/internal/rpc/orbitv1/orbit/v1"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"orbit/internal/controller"
-	"orbit/internal/metrics"
-	"orbit/internal/model"
-	v1 "orbit/internal/rpc/orbitv1/orbit/v1"
 )
 
 type Server struct {

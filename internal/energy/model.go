@@ -1,6 +1,6 @@
 package energy
 
-import "orbit/internal/model"
+import "github.com/MuhammadMaazA/Orbit/internal/model"
 
 type Config struct {
 	IdleWatts float64

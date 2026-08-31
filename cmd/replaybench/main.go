@@ -5,9 +5,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"orbit/internal/energy"
-	"orbit/internal/replay"
-	"orbit/internal/scheduler"
+	"github.com/MuhammadMaazA/Orbit/internal/energy"
+	"github.com/MuhammadMaazA/Orbit/internal/replay"
+	"github.com/MuhammadMaazA/Orbit/internal/scheduler"
 )
 
 func main() {

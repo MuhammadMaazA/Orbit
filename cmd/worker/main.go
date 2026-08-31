@@ -11,9 +11,9 @@ import (
 	"syscall"
 	"time"
 
+	v1 "github.com/MuhammadMaazA/Orbit/internal/rpc/orbitv1/orbit/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	v1 "orbit/internal/rpc/orbitv1/orbit/v1"
 )
 
 func main() {

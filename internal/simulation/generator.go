@@ -3,7 +3,7 @@ package simulation
 import (
 	"math/rand"
 
-	"orbit/internal/model"
+	"github.com/MuhammadMaazA/Orbit/internal/model"
 )
 
 func Generate(seed int64, count int) []Job {

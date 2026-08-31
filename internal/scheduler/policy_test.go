@@ -3,7 +3,7 @@ package scheduler
 import (
 	"testing"
 
-	"orbit/internal/model"
+	"github.com/MuhammadMaazA/Orbit/internal/model"
 )
 
 func TestFirstFitIsDeterministicAndGPUAware(t *testing.T) {

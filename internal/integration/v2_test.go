@@ -6,15 +6,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/MuhammadMaazA/Orbit/internal/controller"
+	"github.com/MuhammadMaazA/Orbit/internal/rpc"
+	v1 "github.com/MuhammadMaazA/Orbit/internal/rpc/orbitv1/orbit/v1"
+	"github.com/MuhammadMaazA/Orbit/internal/scheduler"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
 	"google.golang.org/grpc/test/bufconn"
-	"orbit/internal/controller"
-	"orbit/internal/rpc"
-	v1 "orbit/internal/rpc/orbitv1/orbit/v1"
-	"orbit/internal/scheduler"
 )
 
 func TestWorkerDrainAndUndrainRPC(t *testing.T) {

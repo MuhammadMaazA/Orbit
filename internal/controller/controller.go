@@ -7,10 +7,10 @@ import (
 	"sync"
 	"time"
 
-	"orbit/internal/energy"
-	"orbit/internal/model"
-	"orbit/internal/scheduler"
-	"orbit/internal/storage"
+	"github.com/MuhammadMaazA/Orbit/internal/energy"
+	"github.com/MuhammadMaazA/Orbit/internal/model"
+	"github.com/MuhammadMaazA/Orbit/internal/scheduler"
+	"github.com/MuhammadMaazA/Orbit/internal/storage"
 )
 
 type JobStatus string

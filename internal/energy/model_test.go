@@ -3,7 +3,7 @@ package energy
 import (
 	"testing"
 
-	"orbit/internal/model"
+	"github.com/MuhammadMaazA/Orbit/internal/model"
 )
 
 func TestModelAccountsIdleAndDynamicPower(t *testing.T) {

@@ -1,4 +1,4 @@
-module orbit
+module github.com/MuhammadMaazA/Orbit
 
 go 1.25.0
 

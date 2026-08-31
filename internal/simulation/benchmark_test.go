@@ -3,8 +3,8 @@ package simulation
 import (
 	"testing"
 
-	"orbit/internal/model"
-	"orbit/internal/scheduler"
+	"github.com/MuhammadMaazA/Orbit/internal/model"
+	"github.com/MuhammadMaazA/Orbit/internal/scheduler"
 )
 
 func BenchmarkSimulation(b *testing.B) {

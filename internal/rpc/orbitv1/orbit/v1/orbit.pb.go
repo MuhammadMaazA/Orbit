@@ -880,7 +880,7 @@ const file_orbit_v1_orbit_proto_rawDesc = "" +
 	"\x06GetJob\x12\x1a.orbit.v1.JobStatusRequest\x1a\x1b.orbit.v1.JobStatusResponse\x12?\n" +
 	"\bListJobs\x12\x18.orbit.v1.JobListRequest\x1a\x19.orbit.v1.JobListResponse\x12J\n" +
 	"\vDrainWorker\x12\x1c.orbit.v1.WorkerStateRequest\x1a\x1d.orbit.v1.WorkerStateResponse\x12L\n" +
-	"\rUndrainWorker\x12\x1c.orbit.v1.WorkerStateRequest\x1a\x1d.orbit.v1.WorkerStateResponseB$Z\"orbit/internal/rpc/orbitv1;orbitv1b\x06proto3"
+	"\rUndrainWorker\x12\x1c.orbit.v1.WorkerStateRequest\x1a\x1d.orbit.v1.WorkerStateResponseB=Z;github.com/MuhammadMaazA/Orbit/internal/rpc/orbitv1;orbitv1b\x06proto3"
 
 var (
 	file_orbit_v1_orbit_proto_rawDescOnce sync.Once

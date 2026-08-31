@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package orbit.v1;
 
-option go_package = "orbit/internal/rpc/orbitv1;orbitv1";
+option go_package = "github.com/MuhammadMaazA/Orbit/internal/rpc/orbitv1;orbitv1";
 
 message ResourceRequest {
   int32 cpu = 1;

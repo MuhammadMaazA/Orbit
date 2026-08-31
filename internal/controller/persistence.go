@@ -6,8 +6,8 @@ import (
 	"sort"
 	"time"
 
-	"orbit/internal/model"
-	"orbit/internal/storage"
+	"github.com/MuhammadMaazA/Orbit/internal/model"
+	"github.com/MuhammadMaazA/Orbit/internal/storage"
 )
 
 type persistedState struct {

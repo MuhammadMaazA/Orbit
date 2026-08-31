@@ -12,15 +12,15 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/MuhammadMaazA/Orbit/internal/controller"
+	"github.com/MuhammadMaazA/Orbit/internal/metrics"
+	"github.com/MuhammadMaazA/Orbit/internal/rpc"
+	v1 "github.com/MuhammadMaazA/Orbit/internal/rpc/orbitv1/orbit/v1"
+	"github.com/MuhammadMaazA/Orbit/internal/scheduler"
+	"github.com/MuhammadMaazA/Orbit/internal/storage"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"google.golang.org/grpc"
-	"orbit/internal/controller"
-	"orbit/internal/metrics"
-	"orbit/internal/rpc"
-	v1 "orbit/internal/rpc/orbitv1/orbit/v1"
-	"orbit/internal/scheduler"
-	"orbit/internal/storage"
 )
 
 func main() {

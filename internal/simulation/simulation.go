@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"sort"
 
-	"orbit/internal/energy"
-	"orbit/internal/model"
-	"orbit/internal/scheduler"
+	"github.com/MuhammadMaazA/Orbit/internal/energy"
+	"github.com/MuhammadMaazA/Orbit/internal/model"
+	"github.com/MuhammadMaazA/Orbit/internal/scheduler"
 )
 
 type Job struct {

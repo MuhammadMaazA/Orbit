@@ -3,7 +3,7 @@ package scheduler
 import (
 	"fmt"
 
-	"orbit/internal/model"
+	"github.com/MuhammadMaazA/Orbit/internal/model"
 )
 
 type Policy interface {

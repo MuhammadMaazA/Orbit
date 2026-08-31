@@ -7,9 +7,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"orbit/internal/model"
-	"orbit/internal/scheduler"
-	"orbit/internal/simulation"
+	"github.com/MuhammadMaazA/Orbit/internal/model"
+	"github.com/MuhammadMaazA/Orbit/internal/scheduler"
+	"github.com/MuhammadMaazA/Orbit/internal/simulation"
 )
 
 func main() {

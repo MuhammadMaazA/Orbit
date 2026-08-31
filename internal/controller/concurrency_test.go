@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"orbit/internal/model"
-	"orbit/internal/scheduler"
+	"github.com/MuhammadMaazA/Orbit/internal/model"
+	"github.com/MuhammadMaazA/Orbit/internal/scheduler"
 )
 
 func TestControllerConcurrentSubmissionsRemainConsistent(t *testing.T) {
