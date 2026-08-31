@@ -34,6 +34,18 @@ func NewServer(controller *controller.Controller, instrumentation ...*metrics.Me
 	return server
 }
 
+func (s *Server) ExpireWorkers(now time.Time, timeout time.Duration) error {
+	assignments, err := s.controller.ExpireWorkers(now, timeout)
+	if err != nil {
+		return err
+	}
+	s.dispatch(assignments)
+	if s.metrics != nil {
+		s.updateMetrics()
+	}
+	return nil
+}
+
 func (s *Server) Submit(_ context.Context, request *v1.Job) (*v1.Assignment, error) {
 	if request == nil || request.Resources == nil {
 		return nil, status.Error(codes.InvalidArgument, "job and resources are required")

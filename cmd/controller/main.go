@@ -52,7 +52,8 @@ func main() {
 	server := grpc.NewServer()
 	registry := prometheus.NewRegistry()
 	instrumentation := metrics.New(registry)
-	v1.RegisterOrbitControllerServer(server, rpc.NewServer(state, instrumentation))
+	rpcServer := rpc.NewServer(state, instrumentation)
+	v1.RegisterOrbitControllerServer(server, rpcServer)
 	httpMux := http.NewServeMux()
 	httpMux.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{}))
 	httpMux.HandleFunc("/healthz", func(response http.ResponseWriter, _ *http.Request) { response.WriteHeader(http.StatusOK) })
@@ -70,7 +71,7 @@ func main() {
 			case <-shutdown:
 				return
 			case <-ticker.C:
-				if _, err := state.ExpireWorkers(time.Now(), *timeout); err != nil {
+				if err := rpcServer.ExpireWorkers(time.Now(), *timeout); err != nil {
 					slog.Error("expire workers", "error", err)
 				}
 				stats := state.Stats()
