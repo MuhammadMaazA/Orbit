@@ -110,7 +110,13 @@ func (c *Controller) ExpireWorkers(now time.Time, timeout time.Duration) ([]Assi
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	for id, worker := range c.workers {
+	workerIDs := make([]string, 0, len(c.workers))
+	for id := range c.workers {
+		workerIDs = append(workerIDs, id)
+	}
+	sort.Strings(workerIDs)
+	for _, id := range workerIDs {
+		worker := c.workers[id]
 		if now.Sub(worker.seen) >= timeout {
 			c.expireWorkerLocked(id, worker.session)
 		}
@@ -174,7 +180,13 @@ func (c *Controller) WorkerLost(workerID, session string) ([]Assignment, error) 
 
 func (c *Controller) expireWorkerLocked(workerID, session string) {
 	delete(c.workers, workerID)
-	for _, job := range c.jobs {
+	jobIDs := make([]string, 0, len(c.jobs))
+	for id := range c.jobs {
+		jobIDs = append(jobIDs, id)
+	}
+	sort.Strings(jobIDs)
+	for _, id := range jobIDs {
+		job := c.jobs[id]
 		if job.assignment == nil || job.assignment.WorkerID != workerID || job.assignment.SessionID != session {
 			continue
 		}

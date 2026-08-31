@@ -69,13 +69,30 @@ func Run(policy scheduler.Policy, workers []Worker, jobs []Job) (Result, error) 
 	}
 	sort.SliceStable(jobs, func(i, j int) bool { return jobs[i].Arrival < jobs[j].Arrival })
 	workerState := make([]model.Worker, len(workers))
+	seenWorkers := make(map[string]struct{}, len(workers))
 	for i, worker := range workers {
+		if worker.ID == "" {
+			return Result{}, fmt.Errorf("simulate: worker ID is required")
+		}
+		if _, exists := seenWorkers[worker.ID]; exists {
+			return Result{}, fmt.Errorf("simulate: duplicate worker %q", worker.ID)
+		}
+		if err := worker.Capacity.Valid(); err != nil {
+			return Result{}, fmt.Errorf("simulate worker %q: %w", worker.ID, err)
+		}
+		seenWorkers[worker.ID] = struct{}{}
 		workerState[i] = model.Worker{ID: worker.ID, Capacity: worker.Capacity}
 	}
 	jobByID := make(map[string]Job, len(jobs))
 	queue := make([]string, 0, len(jobs))
 	events := &eventQueue{}
 	for i, job := range jobs {
+		if job.Spec.ID == "" {
+			return Result{}, fmt.Errorf("simulate: job ID is required")
+		}
+		if _, exists := jobByID[job.Spec.ID]; exists {
+			return Result{}, fmt.Errorf("simulate: duplicate job %q", job.Spec.ID)
+		}
 		jobByID[job.Spec.ID] = job
 		heap.Push(events, event{at: job.Arrival, order: i, jobID: job.Spec.ID, arrival: true})
 	}

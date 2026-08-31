@@ -84,6 +84,9 @@ func (s *Server) WorkerSession(stream v1.OrbitController_WorkerSessionServer) er
 		}
 		switch payload := message.Payload.(type) {
 		case *v1.WorkerSessionMessage_Register:
+			if payload.Register.Total == nil {
+				return status.Error(codes.InvalidArgument, "worker capacity is required")
+			}
 			workerID, sessionID = payload.Register.Id, payload.Register.SessionId
 			session = &workerSession{stream: stream}
 			s.mu.Lock()
