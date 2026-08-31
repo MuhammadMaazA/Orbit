@@ -33,18 +33,18 @@ func (n *Node) Allocate(j Job) error {
 		return fmt.Errorf("node %s cannot fit job %s (needs %d CPU / %d MB, has %d CPU / %d MB available)",
 			n.ID, j.ID, j.CPU, j.MemoryMB, n.AvailableCPU, n.AvailableMemoryMB)
 	}
-	resources := model.Resources{CPU: n.TotalCPU, MemoryMB: n.TotalMemoryMB, GPU: n.TotalGPU, AvailableCPU: n.AvailableCPU, AvailableMB: n.AvailableMemoryMB, AvailableGPU: n.AvailableGPU}
+	resources := model.Capacity{Total: model.ResourceRequest{CPU: n.TotalCPU, MemoryMB: n.TotalMemoryMB, GPU: n.TotalGPU}, Available: model.ResourceRequest{CPU: n.AvailableCPU, MemoryMB: n.AvailableMemoryMB, GPU: n.AvailableGPU}}
 	if err := resources.Allocate(model.Job{CPU: j.CPU, MemoryMB: j.MemoryMB, GPU: j.GPU}.Resources()); err != nil {
 		return fmt.Errorf("node %s cannot fit job %s: %w", n.ID, j.ID, err)
 	}
-	n.AvailableCPU, n.AvailableMemoryMB, n.AvailableGPU = resources.AvailableCPU, resources.AvailableMB, resources.AvailableGPU
+	n.AvailableCPU, n.AvailableMemoryMB, n.AvailableGPU = resources.Available.CPU, resources.Available.MemoryMB, resources.Available.GPU
 	return nil
 }
 
 func FirstFit(nodes []Node, job Job) (int, bool) {
 	workers := make([]model.Worker, len(nodes))
 	for i, n := range nodes {
-		workers[i] = model.Worker{ID: n.ID, Capacity: model.Resources{CPU: n.TotalCPU, MemoryMB: n.TotalMemoryMB, GPU: n.TotalGPU, AvailableCPU: n.AvailableCPU, AvailableMB: n.AvailableMemoryMB, AvailableGPU: n.AvailableGPU}}
+		workers[i] = model.Worker{ID: n.ID, Capacity: model.Capacity{Total: model.ResourceRequest{CPU: n.TotalCPU, MemoryMB: n.TotalMemoryMB, GPU: n.TotalGPU}, Available: model.ResourceRequest{CPU: n.AvailableCPU, MemoryMB: n.AvailableMemoryMB, GPU: n.AvailableGPU}}}
 	}
 	return (scheduler.FirstFit{}).Select(workers, model.Job{CPU: job.CPU, MemoryMB: job.MemoryMB, GPU: job.GPU})
 }

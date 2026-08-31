@@ -58,9 +58,9 @@ func (BinPack) Select(workers []model.Worker, job model.Job) (int, bool) {
 	return best, best >= 0
 }
 
-func lessRemaining(a, b, request model.Resources) bool {
-	acpu, amem, agpu := a.AvailableCPU-request.CPU, a.AvailableMB-request.MemoryMB, a.AvailableGPU-request.GPU
-	bcpu, bmem, bgpu := b.AvailableCPU-request.CPU, b.AvailableMB-request.MemoryMB, b.AvailableGPU-request.GPU
+func lessRemaining(a, b model.Capacity, request model.ResourceRequest) bool {
+	acpu, amem, agpu := a.Available.CPU-request.CPU, a.Available.MemoryMB-request.MemoryMB, a.Available.GPU-request.GPU
+	bcpu, bmem, bgpu := b.Available.CPU-request.CPU, b.Available.MemoryMB-request.MemoryMB, b.Available.GPU-request.GPU
 	if acpu != bcpu {
 		return acpu < bcpu
 	}
@@ -70,9 +70,9 @@ func lessRemaining(a, b, request model.Resources) bool {
 	return agpu < bgpu
 }
 
-func moreUtilized(a, b model.Resources) bool {
-	aUsed, aTotal := (a.CPU-a.AvailableCPU)+(a.MemoryMB-a.AvailableMB)+(a.GPU-a.AvailableGPU), a.CPU+a.MemoryMB+a.GPU
-	bUsed, bTotal := (b.CPU-b.AvailableCPU)+(b.MemoryMB-b.AvailableMB)+(b.GPU-b.AvailableGPU), b.CPU+b.MemoryMB+b.GPU
+func moreUtilized(a, b model.Capacity) bool {
+	aUsed, aTotal := (a.Total.CPU-a.Available.CPU)+(a.Total.MemoryMB-a.Available.MemoryMB)+(a.Total.GPU-a.Available.GPU), a.Total.CPU+a.Total.MemoryMB+a.Total.GPU
+	bUsed, bTotal := (b.Total.CPU-b.Available.CPU)+(b.Total.MemoryMB-b.Available.MemoryMB)+(b.Total.GPU-b.Available.GPU), b.Total.CPU+b.Total.MemoryMB+b.Total.GPU
 	if aTotal == 0 || bTotal == 0 {
 		return aTotal > bTotal
 	}
