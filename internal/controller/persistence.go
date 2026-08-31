@@ -3,7 +3,6 @@ package controller
 import (
 	"encoding/json"
 	"fmt"
-	"sort"
 	"time"
 
 	"github.com/MuhammadMaazA/Orbit/internal/model"
@@ -37,7 +36,8 @@ func (c *Controller) SetStore(store storage.Store) error {
 	if err != nil {
 		return err
 	}
-	if len(snapshot) == 0 && len(events) > 0 {
+	// The WAL is appended before snapshot.json is rewritten, so its last entry is never older.
+	if len(events) > 0 {
 		snapshot = events[len(events)-1].Data
 	}
 	if len(snapshot) == 0 {
@@ -65,12 +65,7 @@ func (c *Controller) persistLocked(eventType string) error {
 
 func (c *Controller) snapshotLocked() ([]byte, error) {
 	state := persistedState{Queue: append([]string(nil), c.queue...), NextSeq: c.nextSeq, Requeued: c.requeued}
-	jobIDs := make([]string, 0, len(c.jobs))
-	for id := range c.jobs {
-		jobIDs = append(jobIDs, id)
-	}
-	sort.Strings(jobIDs)
-	for _, id := range jobIDs {
+	for _, id := range sortedKeys(c.jobs) {
 		job := c.jobs[id]
 		state.Jobs = append(state.Jobs, persistedJob{Job: job.job, Status: job.status, Attempts: job.attempts, Assignment: copyAssignment(job.assignment), EnqueuedAt: job.enqueuedAt.UnixNano(), Sequence: job.sequence})
 	}

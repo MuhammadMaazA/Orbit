@@ -39,10 +39,10 @@ func NewServer(controller *controller.Controller, instrumentation ...*metrics.Me
 
 func (s *Server) ExpireWorkers(now time.Time, timeout time.Duration) error {
 	assignments, err := s.controller.ExpireWorkers(now, timeout)
+	s.dispatch(assignments)
 	if err != nil {
 		return err
 	}
-	s.dispatch(assignments)
 	if s.metrics != nil {
 		s.updateMetrics()
 	}
@@ -54,6 +54,7 @@ func (s *Server) Submit(_ context.Context, request *v1.Job) (*v1.Assignment, err
 		return nil, status.Error(codes.InvalidArgument, "job and resources are required")
 	}
 	assignments, err := s.controller.Submit(fromJob(request))
+	s.dispatch(assignments)
 	if err != nil {
 		if errors.Is(err, controller.ErrQueueFull) && s.metrics != nil {
 			s.metrics.JobsRejected.Inc()
@@ -67,7 +68,6 @@ func (s *Server) Submit(_ context.Context, request *v1.Job) (*v1.Assignment, err
 		s.metrics.JobsSubmitted.Inc()
 		s.updateMetrics()
 	}
-	s.dispatch(assignments)
 	if len(assignments) == 0 {
 		return &v1.Assignment{}, nil
 	}
@@ -110,7 +110,6 @@ func (s *Server) DrainWorker(_ context.Context, request *v1.WorkerStateRequest) 
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
 	if s.metrics != nil {
-		s.metrics.WorkersRegistered.Inc()
 		s.updateMetrics()
 	}
 	return &v1.WorkerStateResponse{Draining: true}, nil
@@ -118,10 +117,10 @@ func (s *Server) DrainWorker(_ context.Context, request *v1.WorkerStateRequest) 
 
 func (s *Server) UndrainWorker(_ context.Context, request *v1.WorkerStateRequest) (*v1.WorkerStateResponse, error) {
 	assignments, err := s.controller.UndrainWorker(request.GetWorkerId())
+	s.dispatch(assignments)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
-	s.dispatch(assignments)
 	if s.metrics != nil {
 		s.updateMetrics()
 	}
@@ -155,13 +154,14 @@ func (s *Server) WorkerSession(stream v1.OrbitController_WorkerSessionServer) er
 			s.sessions[workerID] = session
 			s.mu.Unlock()
 			assignments, err := s.controller.RegisterWorker(workerID, sessionID, fromCapacity(payload.Register.Total))
+			s.dispatch(assignments)
 			if err != nil {
 				return status.Error(codes.InvalidArgument, err.Error())
 			}
 			if s.metrics != nil {
+				s.metrics.WorkersRegistered.Inc()
 				s.updateMetrics()
 			}
-			s.dispatch(assignments)
 		case *v1.WorkerSessionMessage_HeartbeatSessionId:
 			if session == nil {
 				return status.Error(codes.FailedPrecondition, "worker must register first")
@@ -177,6 +177,7 @@ func (s *Server) WorkerSession(stream v1.OrbitController_WorkerSessionServer) er
 				return status.Error(codes.InvalidArgument, "completion assignment is required")
 			}
 			assignments, accepted, err := s.controller.Complete(fromAssignment(payload.Completion.Assignment), payload.Completion.Success)
+			s.dispatch(assignments)
 			if err != nil {
 				return status.Error(codes.Internal, err.Error())
 			}
@@ -189,7 +190,6 @@ func (s *Server) WorkerSession(stream v1.OrbitController_WorkerSessionServer) er
 					}
 					s.updateMetrics()
 				}
-				s.dispatch(assignments)
 			} else if s.metrics != nil {
 				s.metrics.StaleResultsRejected.Inc()
 			}

@@ -198,12 +198,7 @@ func (c *Controller) ExpireWorkers(now time.Time, timeout time.Duration) ([]Assi
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	workerIDs := make([]string, 0, len(c.workers))
-	for id := range c.workers {
-		workerIDs = append(workerIDs, id)
-	}
-	sort.Strings(workerIDs)
-	for _, id := range workerIDs {
+	for _, id := range sortedKeys(c.workers) {
 		worker := c.workers[id]
 		if now.Sub(worker.seen) >= timeout {
 			c.expireWorkerLocked(id, worker.session)
@@ -274,17 +269,21 @@ func (c *Controller) WorkerLost(workerID, session string) ([]Assignment, error) 
 	return assignments, c.persistLocked("worker_lost")
 }
 
+func sortedKeys[V any](m map[string]V) []string {
+	keys := make([]string, 0, len(m))
+	for key := range m {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
 func (c *Controller) expireWorkerLocked(workerID, session string) {
 	if worker := c.workers[workerID]; worker != nil && worker.session == session {
 		c.energy.Remove(workerID, c.energyTime(c.now()))
 	}
 	delete(c.workers, workerID)
-	jobIDs := make([]string, 0, len(c.jobs))
-	for id := range c.jobs {
-		jobIDs = append(jobIDs, id)
-	}
-	sort.Strings(jobIDs)
-	for _, id := range jobIDs {
+	for _, id := range sortedKeys(c.jobs) {
 		job := c.jobs[id]
 		if job.assignment == nil || job.assignment.WorkerID != workerID || job.assignment.SessionID != session {
 			continue
@@ -320,11 +319,7 @@ func (c *Controller) GetJob(id string) (JobView, bool) {
 func (c *Controller) ListJobs() []JobView {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	ids := make([]string, 0, len(c.jobs))
-	for id := range c.jobs {
-		ids = append(ids, id)
-	}
-	sort.Strings(ids)
+	ids := sortedKeys(c.jobs)
 	views := make([]JobView, 0, len(ids))
 	for _, id := range ids {
 		job := c.jobs[id]

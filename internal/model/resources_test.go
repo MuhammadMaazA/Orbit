@@ -29,3 +29,14 @@ func TestResourcesRejectedAllocationDoesNotMutate(t *testing.T) {
 		t.Fatalf("rejected Allocate() mutated resources: got %+v, want %+v", r, want)
 	}
 }
+
+func TestResourcesRejectedReleaseDoesNotMutate(t *testing.T) {
+	r := Capacity{Total: ResourceRequest{CPU: 2, MemoryMB: 1_024}, Available: ResourceRequest{CPU: 2, MemoryMB: 1_024}}
+	want := r
+	if err := r.Release(ResourceRequest{CPU: 1}); err == nil {
+		t.Fatal("Release() succeeded when it would exceed total CPU capacity")
+	}
+	if r != want {
+		t.Fatalf("rejected Release() mutated resources: got %+v, want %+v", r, want)
+	}
+}

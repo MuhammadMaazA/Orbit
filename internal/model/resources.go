@@ -43,11 +43,14 @@ func (c *Capacity) Allocate(request ResourceRequest) error {
 }
 
 func (c *Capacity) Release(request ResourceRequest) error {
-	c.Available.CPU += request.CPU
-	c.Available.MemoryMB += request.MemoryMB
-	c.Available.GPU += request.GPU
-	if err := c.Valid(); err != nil {
-		return fmt.Errorf("release resources: %w", err)
+	after := ResourceRequest{
+		CPU:      c.Available.CPU + request.CPU,
+		MemoryMB: c.Available.MemoryMB + request.MemoryMB,
+		GPU:      c.Available.GPU + request.GPU,
 	}
+	if after.CPU > c.Total.CPU || after.MemoryMB > c.Total.MemoryMB || after.GPU > c.Total.GPU {
+		return fmt.Errorf("release resources: exceeds total capacity")
+	}
+	c.Available = after
 	return nil
 }
