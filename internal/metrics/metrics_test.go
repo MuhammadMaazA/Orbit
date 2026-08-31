@@ -11,6 +11,7 @@ func TestNewRegistersOrbitMetrics(t *testing.T) {
 	metrics := New(registry)
 	metrics.JobsSubmitted.Inc()
 	metrics.SetGauges(2, 1, 3, 4)
+	metrics.SetEnergy(1, 12.5)
 	families, err := registry.Gather()
 	if err != nil {
 		t.Fatal(err)
@@ -26,6 +27,8 @@ func TestNewRegistersOrbitMetrics(t *testing.T) {
 		"orbit_workers_draining":             false,
 		"orbit_jobs_queued":                  false,
 		"orbit_jobs_running":                 false,
+		"orbit_workers_active_total":         false,
+		"orbit_energy_joules_total":          false,
 	}
 	for _, family := range families {
 		if _, ok := want[family.GetName()]; ok {

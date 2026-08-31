@@ -58,6 +58,30 @@ func (BinPack) Select(workers []model.Worker, job model.Job) (int, bool) {
 	return best, best >= 0
 }
 
+type EnergyAware struct{}
+
+func (EnergyAware) Name() string { return "energy" }
+
+func (EnergyAware) Select(workers []model.Worker, job model.Job) (int, bool) {
+	best := -1
+	for i, worker := range workers {
+		if !worker.Capacity.CanFit(job.Resources()) || !isActive(worker.Capacity) {
+			continue
+		}
+		if best == -1 || moreUtilized(worker.Capacity, workers[best].Capacity) {
+			best = i
+		}
+	}
+	if best >= 0 {
+		return best, true
+	}
+	return (BinPack{}).Select(workers, job)
+}
+
+func isActive(capacity model.Capacity) bool {
+	return capacity.Available.CPU < capacity.Total.CPU || capacity.Available.MemoryMB < capacity.Total.MemoryMB || capacity.Available.GPU < capacity.Total.GPU
+}
+
 func lessRemaining(a, b model.Capacity, request model.ResourceRequest) bool {
 	acpu, amem, agpu := a.Available.CPU-request.CPU, a.Available.MemoryMB-request.MemoryMB, a.Available.GPU-request.GPU
 	bcpu, bmem, bgpu := b.Available.CPU-request.CPU, b.Available.MemoryMB-request.MemoryMB, b.Available.GPU-request.GPU

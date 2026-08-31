@@ -234,6 +234,7 @@ func (s *Server) updateMetrics() {
 	}
 	s.metricsMu.Unlock()
 	s.metrics.SetGauges(stats.Workers, stats.Draining, stats.Queued, stats.Running)
+	s.metrics.SetEnergy(stats.ActiveWorkers, stats.EnergyJoules)
 }
 
 var now = func() time.Time { return time.Now() }

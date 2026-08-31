@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sort"
 
+	"orbit/internal/energy"
 	"orbit/internal/model"
 	"orbit/internal/scheduler"
 )
@@ -27,6 +28,8 @@ type Result struct {
 	Makespan          int
 	AverageWait       float64
 	AverageTurnaround float64
+	EnergyJoules      float64
+	ActiveWorkerTime  float64
 }
 
 type event struct {
@@ -70,6 +73,7 @@ func Run(policy scheduler.Policy, workers []Worker, jobs []Job) (Result, error) 
 	jobs = append([]Job(nil), jobs...)
 	sort.SliceStable(jobs, func(i, j int) bool { return jobs[i].Arrival < jobs[j].Arrival })
 	workerState := make([]model.Worker, len(workers))
+	energyModel := energy.New(energy.Config{IdleWatts: 100, CPUWatts: 10, GPUWatts: 50})
 	seenWorkers := make(map[string]struct{}, len(workers))
 	for i, worker := range workers {
 		if worker.ID == "" {
@@ -83,6 +87,7 @@ func Run(policy scheduler.Policy, workers []Worker, jobs []Job) (Result, error) 
 		}
 		seenWorkers[worker.ID] = struct{}{}
 		workerState[i] = model.Worker{ID: worker.ID, Capacity: worker.Capacity}
+		energyModel.Register(worker.ID, worker.Capacity, 0)
 	}
 	jobByID := make(map[string]Job, len(jobs))
 	queue := make([]string, 0, len(jobs))
@@ -115,6 +120,7 @@ func Run(policy scheduler.Policy, workers []Worker, jobs []Job) (Result, error) 
 				continue
 			}
 			workerState[e.worker].Capacity.Release(jobByID[e.jobID].Spec.Resources())
+			energyModel.Observe(workerState[e.worker].ID, workerState[e.worker].Capacity, float64(lastTime))
 			completed++
 			turnaround += lastTime - jobByID[e.jobID].Arrival
 		}
@@ -147,6 +153,7 @@ func Run(policy scheduler.Policy, workers []Worker, jobs []Job) (Result, error) 
 			if err := workerState[workerIndex].Capacity.Allocate(candidate.Spec.Resources()); err != nil {
 				return Result{}, err
 			}
+			energyModel.Observe(workerState[workerIndex].ID, workerState[workerIndex].Capacity, float64(lastTime))
 			queue = append(queue[:candidateIndex], queue[candidateIndex+1:]...)
 			starts[candidate.Spec.ID] = lastTime
 			wait += lastTime - candidate.Arrival
@@ -159,7 +166,8 @@ func Run(policy scheduler.Policy, workers []Worker, jobs []Job) (Result, error) 
 			break
 		}
 	}
-	return Result{Policy: policy.Name(), Jobs: len(jobs), Completed: completed, Makespan: lastTime, AverageWait: average(wait, completed), AverageTurnaround: average(turnaround, completed)}, nil
+	energyStats := energyModel.Snapshot(float64(lastTime))
+	return Result{Policy: policy.Name(), Jobs: len(jobs), Completed: completed, Makespan: lastTime, AverageWait: average(wait, completed), AverageTurnaround: average(turnaround, completed), EnergyJoules: energyStats.Joules, ActiveWorkerTime: energyStats.ActiveWorkerTime}, nil
 }
 
 func average(total, count int) float64 {

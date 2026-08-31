@@ -1,6 +1,10 @@
 package metrics
 
-import "github.com/prometheus/client_golang/prometheus"
+import (
+	"sync"
+
+	"github.com/prometheus/client_golang/prometheus"
+)
 
 type Metrics struct {
 	JobsSubmitted        prometheus.Counter
@@ -15,6 +19,10 @@ type Metrics struct {
 	Draining             prometheus.Gauge
 	Queued               prometheus.Gauge
 	Running              prometheus.Gauge
+	WorkersActive        prometheus.Gauge
+	EnergyJoules         prometheus.Counter
+	energyMu             sync.Mutex
+	reportedEnergy       float64
 }
 
 func (m *Metrics) SetGauges(workers, draining, queued, running int) {
@@ -22,6 +30,16 @@ func (m *Metrics) SetGauges(workers, draining, queued, running int) {
 	m.Draining.Set(float64(draining))
 	m.Queued.Set(float64(queued))
 	m.Running.Set(float64(running))
+}
+
+func (m *Metrics) SetEnergy(activeWorkers int, joules float64) {
+	m.WorkersActive.Set(float64(activeWorkers))
+	m.energyMu.Lock()
+	defer m.energyMu.Unlock()
+	if joules > m.reportedEnergy {
+		m.EnergyJoules.Add(joules - m.reportedEnergy)
+		m.reportedEnergy = joules
+	}
 }
 
 func New(reg prometheus.Registerer) *Metrics {
@@ -38,8 +56,10 @@ func New(reg prometheus.Registerer) *Metrics {
 		Draining:             prometheus.NewGauge(prometheus.GaugeOpts{Name: "orbit_workers_draining", Help: "Currently draining workers."}),
 		Queued:               prometheus.NewGauge(prometheus.GaugeOpts{Name: "orbit_jobs_queued", Help: "Currently queued jobs."}),
 		Running:              prometheus.NewGauge(prometheus.GaugeOpts{Name: "orbit_jobs_running", Help: "Currently running jobs."}),
+		WorkersActive:        prometheus.NewGauge(prometheus.GaugeOpts{Name: "orbit_workers_active_total", Help: "Currently active workers."}),
+		EnergyJoules:         prometheus.NewCounter(prometheus.CounterOpts{Name: "orbit_energy_joules_total", Help: "Cumulative modeled energy consumption in joules."}),
 	}
-	for _, collector := range []prometheus.Collector{m.JobsSubmitted, m.JobsCompleted, m.JobsFailed, m.JobsRejected, m.JobsRequeued, m.WorkersRegistered, m.SchedulingAttempts, m.StaleResultsRejected, m.Workers, m.Draining, m.Queued, m.Running} {
+	for _, collector := range []prometheus.Collector{m.JobsSubmitted, m.JobsCompleted, m.JobsFailed, m.JobsRejected, m.JobsRequeued, m.WorkersRegistered, m.SchedulingAttempts, m.StaleResultsRejected, m.Workers, m.Draining, m.Queued, m.Running, m.WorkersActive, m.EnergyJoules} {
 		reg.MustRegister(collector)
 	}
 	return m

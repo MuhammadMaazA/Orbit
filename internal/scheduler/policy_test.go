@@ -39,3 +39,14 @@ func TestPoliciesChooseDeterministically(t *testing.T) {
 		})
 	}
 }
+
+func TestEnergyAwarePrefersActiveWorker(t *testing.T) {
+	workers := []model.Worker{
+		{ID: "active", Capacity: model.Capacity{Total: model.ResourceRequest{CPU: 8}, Available: model.ResourceRequest{CPU: 4}}},
+		{ID: "idle", Capacity: model.Capacity{Total: model.ResourceRequest{CPU: 8}, Available: model.ResourceRequest{CPU: 8}}},
+	}
+	idx, ok := (EnergyAware{}).Select(workers, model.Job{CPU: 2})
+	if !ok || idx != 0 {
+		t.Fatalf("Select() = %d, %t; want 0, true", idx, ok)
+	}
+}

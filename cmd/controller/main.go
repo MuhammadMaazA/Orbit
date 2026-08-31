@@ -27,11 +27,14 @@ func main() {
 	address := flag.String("addr", ":9000", "listen address")
 	metricsAddress := flag.String("metrics-addr", ":9090", "metrics and health listen address")
 	timeout := flag.Duration("worker-timeout", 5*time.Second, "worker heartbeat timeout")
-	policyName := flag.String("policy", "first-fit", "scheduling policy: first-fit, best-fit, or bin-pack")
+	policyName := flag.String("policy", "first-fit", "scheduling policy: first-fit, best-fit, bin-pack, or energy")
 	maxAttempts := flag.Int("max-attempts", 3, "maximum attempts per job")
 	maxQueuedJobs := flag.Int("max-queued-jobs", 1_000, "maximum queued jobs; zero disables the limit")
 	agingInterval := flag.Duration("aging-interval", 30*time.Second, "time required for a queued job to gain one effective priority level")
 	dataDir := flag.String("data-dir", "", "directory for WAL and snapshots; empty disables persistence")
+	powerIdle := flag.Float64("power-idle", 100, "idle worker power in watts")
+	powerCPU := flag.Float64("power-cpu", 10, "power per allocated CPU in watts")
+	powerGPU := flag.Float64("power-gpu", 50, "power per allocated GPU in watts")
 	flag.Parse()
 
 	if *timeout <= 0 {
@@ -43,7 +46,7 @@ func main() {
 		slog.Error("invalid policy", "error", err)
 		os.Exit(2)
 	}
-	config := controller.Config{MaxAttempts: *maxAttempts, MaxQueuedJobs: *maxQueuedJobs, AgingInterval: *agingInterval}
+	config := controller.Config{MaxAttempts: *maxAttempts, MaxQueuedJobs: *maxQueuedJobs, AgingInterval: *agingInterval, PowerIdleWatts: *powerIdle, PowerCPUWatts: *powerCPU, PowerGPUWatts: *powerGPU}
 	if *dataDir != "" {
 		store, storeErr := storage.NewFileStore(*dataDir)
 		if storeErr != nil {
@@ -117,6 +120,8 @@ func policyForName(name string) (scheduler.Policy, error) {
 		return scheduler.BestFit{}, nil
 	case "bin-pack":
 		return scheduler.BinPack{}, nil
+	case "energy":
+		return scheduler.EnergyAware{}, nil
 	default:
 		return nil, fmt.Errorf("unsupported policy %q", name)
 	}

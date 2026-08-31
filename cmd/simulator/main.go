@@ -20,7 +20,7 @@ func main() {
 	resources := model.ResourceRequest{CPU: 16, MemoryMB: 16_384}
 	workers := []simulation.Worker{{ID: "worker-a", Capacity: model.Capacity{Total: resources, Available: resources}}, {ID: "worker-b", Capacity: model.Capacity{Total: resources, Available: resources}}}
 	jobs := simulation.Generate(*seed, *count)
-	policies := []scheduler.Policy{scheduler.FirstFit{}, scheduler.BestFit{}, scheduler.BinPack{}}
+	policies := []scheduler.Policy{scheduler.FirstFit{}, scheduler.BestFit{}, scheduler.BinPack{}, scheduler.EnergyAware{}}
 	writer := os.Stdout
 	if *output != "" {
 		if err := os.MkdirAll(filepath.Dir(*output), 0o755); err != nil {
@@ -35,13 +35,13 @@ func main() {
 		defer file.Close()
 		writer = file
 	}
-	fmt.Fprintln(writer, "policy,jobs,completed,makespan,average_wait,average_turnaround")
+	fmt.Fprintln(writer, "policy,jobs,completed,makespan,average_wait,average_turnaround,energy_joules,active_worker_time")
 	for _, policy := range policies {
 		result, err := simulation.Run(policy, workers, jobs)
 		if err != nil {
 			slog.Error("simulate", "policy", policy.Name(), "error", err)
 			os.Exit(1)
 		}
-		fmt.Fprintf(writer, "%s,%d,%d,%d,%.2f,%.2f\n", result.Policy, result.Jobs, result.Completed, result.Makespan, result.AverageWait, result.AverageTurnaround)
+		fmt.Fprintf(writer, "%s,%d,%d,%d,%.2f,%.2f,%.2f,%.2f\n", result.Policy, result.Jobs, result.Completed, result.Makespan, result.AverageWait, result.AverageTurnaround, result.EnergyJoules, result.ActiveWorkerTime)
 	}
 }

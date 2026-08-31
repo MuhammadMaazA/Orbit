@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"orbit/internal/energy"
 	"orbit/internal/model"
 	"orbit/internal/scheduler"
 	"orbit/internal/storage"
@@ -24,10 +25,13 @@ const (
 var ErrQueueFull = errors.New("controller: job queue is full")
 
 type Config struct {
-	MaxAttempts   int
-	MaxQueuedJobs int
-	AgingInterval time.Duration
-	Store         storage.Store
+	MaxAttempts    int
+	MaxQueuedJobs  int
+	AgingInterval  time.Duration
+	Store          storage.Store
+	PowerIdleWatts float64
+	PowerCPUWatts  float64
+	PowerGPUWatts  float64
 }
 
 type Assignment struct {
@@ -46,13 +50,16 @@ type JobView struct {
 }
 
 type Stats struct {
-	Workers   int
-	Draining  int
-	Queued    int
-	Running   int
-	Completed int
-	Failed    int
-	Requeued  uint64
+	Workers          int
+	Draining         int
+	Queued           int
+	Running          int
+	Completed        int
+	Failed           int
+	Requeued         uint64
+	ActiveWorkers    int
+	EnergyJoules     float64
+	ActiveWorkerTime float64
 }
 
 type workerState struct {
@@ -85,6 +92,7 @@ type Controller struct {
 	now         func() time.Time
 	requeued    uint64
 	store       storage.Store
+	energy      *energy.Model
 }
 
 func New(policy scheduler.Policy, maxAttempts int) (*Controller, error) {
@@ -104,6 +112,12 @@ func NewWithConfig(policy scheduler.Policy, config Config) (*Controller, error) 
 	if config.AgingInterval <= 0 {
 		return nil, fmt.Errorf("controller: aging interval must be positive")
 	}
+	if config.PowerIdleWatts == 0 && config.PowerCPUWatts == 0 && config.PowerGPUWatts == 0 {
+		config.PowerIdleWatts, config.PowerCPUWatts, config.PowerGPUWatts = 100, 10, 50
+	}
+	if config.PowerIdleWatts < 0 || config.PowerCPUWatts < 0 || config.PowerGPUWatts < 0 {
+		return nil, fmt.Errorf("controller: power values cannot be negative")
+	}
 	controller := &Controller{
 		policy:      policy,
 		maxAttempts: config.MaxAttempts,
@@ -112,6 +126,7 @@ func NewWithConfig(policy scheduler.Policy, config Config) (*Controller, error) 
 		maxQueued:   config.MaxQueuedJobs,
 		aging:       config.AgingInterval,
 		now:         time.Now,
+		energy:      energy.New(energy.Config{IdleWatts: config.PowerIdleWatts, CPUWatts: config.PowerCPUWatts, GPUWatts: config.PowerGPUWatts}),
 	}
 	if config.Store != nil {
 		if err := controller.SetStore(config.Store); err != nil {
@@ -136,7 +151,9 @@ func (c *Controller) RegisterWorker(id, session string, capacity model.Capacity)
 		}
 		c.expireWorkerLocked(id, previous.session)
 	}
-	c.workers[id] = &workerState{id: id, session: session, capacity: capacity, seen: c.now()}
+	at := c.now()
+	c.workers[id] = &workerState{id: id, session: session, capacity: capacity, seen: at}
+	c.energy.Register(id, capacity, c.energyTime(at))
 	assignments := c.scheduleLocked()
 	return assignments, c.persistLocked("worker_registered")
 }
@@ -234,6 +251,7 @@ func (c *Controller) Complete(assignment Assignment, success bool) ([]Assignment
 	if err := worker.capacity.Release(job.assignment.Job.Resources()); err != nil {
 		return nil, false, fmt.Errorf("complete job %q: %w", assignment.Job.ID, err)
 	}
+	c.energy.Observe(worker.id, worker.capacity, c.energyTime(c.now()))
 	job.assignment = nil
 	if success {
 		job.status = Completed
@@ -257,6 +275,9 @@ func (c *Controller) WorkerLost(workerID, session string) ([]Assignment, error) 
 }
 
 func (c *Controller) expireWorkerLocked(workerID, session string) {
+	if worker := c.workers[workerID]; worker != nil && worker.session == session {
+		c.energy.Remove(workerID, c.energyTime(c.now()))
+	}
 	delete(c.workers, workerID)
 	jobIDs := make([]string, 0, len(c.jobs))
 	for id := range c.jobs {
@@ -315,7 +336,8 @@ func (c *Controller) ListJobs() []JobView {
 func (c *Controller) Stats() Stats {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	stats := Stats{Workers: len(c.workers), Queued: len(c.queue), Requeued: c.requeued}
+	energyStats := c.energy.Snapshot(c.energyTime(c.now()))
+	stats := Stats{Workers: len(c.workers), Queued: len(c.queue), Requeued: c.requeued, ActiveWorkers: energyStats.ActiveWorkers, EnergyJoules: energyStats.Joules, ActiveWorkerTime: energyStats.ActiveWorkerTime}
 	for _, job := range c.jobs {
 		switch job.status {
 		case Running:
@@ -349,6 +371,7 @@ func (c *Controller) scheduleLocked() []Assignment {
 		if err := worker.capacity.Allocate(job.job.Resources()); err != nil {
 			break
 		}
+		c.energy.Observe(worker.id, worker.capacity, c.energyTime(c.now()))
 		c.queue = append(c.queue[:queueIndex], c.queue[queueIndex+1:]...)
 		job.attempts++
 		assignment := Assignment{ID: fmt.Sprintf("%s:%d", job.job.ID, job.attempts), Job: job.job, WorkerID: worker.id, SessionID: worker.session, Attempt: job.attempts}
@@ -357,6 +380,10 @@ func (c *Controller) scheduleLocked() []Assignment {
 		result = append(result, assignment)
 	}
 	return result
+}
+
+func (c *Controller) energyTime(at time.Time) float64 {
+	return float64(at.UnixNano()) / 1e9
 }
 
 func (c *Controller) nextSchedulableLocked(workers []model.Worker) (int, int) {
