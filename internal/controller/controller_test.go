@@ -1,0 +1,70 @@
+package controller
+
+import (
+	"testing"
+
+	"orbit/internal/model"
+	"orbit/internal/scheduler"
+)
+
+func testCapacity(cpu int) model.Capacity {
+	resources := model.ResourceRequest{CPU: cpu, MemoryMB: 1_024}
+	return model.Capacity{Total: resources, Available: resources}
+}
+
+func TestControllerQueuesAndReschedules(t *testing.T) {
+	c, err := New(scheduler.FirstFit{}, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if assignments, err := c.Submit(model.Job{ID: "job-1", CPU: 2, MemoryMB: 512}); err != nil || len(assignments) != 0 {
+		t.Fatalf("Submit() = %+v, %v; want queued job", assignments, err)
+	}
+	assignments, err := c.RegisterWorker("worker-a", "session-a", testCapacity(2))
+	if err != nil || len(assignments) != 1 {
+		t.Fatalf("RegisterWorker() = %+v, %v", assignments, err)
+	}
+	first := assignments[0]
+	if first.ID != "job-1:1" {
+		t.Fatalf("assignment ID = %q", first.ID)
+	}
+	assignments, err = c.WorkerLost("worker-a", "session-a")
+	if err != nil || len(assignments) != 0 {
+		t.Fatalf("WorkerLost() = %+v, %v; want queued job", assignments, err)
+	}
+	assignments, err = c.RegisterWorker("worker-b", "session-b", testCapacity(2))
+	if err != nil || len(assignments) != 1 {
+		t.Fatalf("replacement RegisterWorker() = %+v, %v", assignments, err)
+	}
+	if assignments[0].ID != "job-1:2" || assignments[0].WorkerID != "worker-b" {
+		t.Fatalf("replacement assignment = %+v", assignments[0])
+	}
+	view, _ := c.GetJob("job-1")
+	if view.Status != Running || view.Assignment.ID != "job-1:2" {
+		t.Fatalf("job view = %+v", view)
+	}
+}
+
+func TestControllerRejectsStaleCompletion(t *testing.T) {
+	c, err := New(scheduler.FirstFit{}, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assignments, err := c.RegisterWorker("worker-a", "session-a", testCapacity(2))
+	if err != nil {
+		t.Fatal(err)
+	}
+	jobAssignments, err := c.Submit(model.Job{ID: "job-1", CPU: 2, MemoryMB: 512})
+	if err != nil {
+		t.Fatal(err)
+	}
+	assignments = append(assignments, jobAssignments...)
+	first := assignments[0]
+	if _, accepted, err := c.Complete(Assignment{ID: first.ID, Job: first.Job, WorkerID: first.WorkerID, SessionID: "old-session", Attempt: first.Attempt}, true); err != nil || accepted {
+		t.Fatalf("stale Complete() = accepted=%t, err=%v", accepted, err)
+	}
+	view, _ := c.GetJob("job-1")
+	if view.Status != Running || view.Assignment.ID != first.ID {
+		t.Fatalf("stale completion changed job = %+v", view)
+	}
+}
