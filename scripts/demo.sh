@@ -11,6 +11,7 @@ cleanup() {
 trap cleanup EXIT
 
 cd "$root"
+export GOCACHE="${TMPDIR:-/tmp}/orbit-demo-go-cache"
 go build -o "$work/controller" ./cmd/controller
 go build -o "$work/worker" ./cmd/worker
 go build -o "$work/orbit" ./cmd/orbit

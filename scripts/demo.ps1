@@ -4,7 +4,9 @@ $work = Join-Path $env:TEMP "orbit-demo-$PID"
 New-Item -ItemType Directory -Force -Path $work | Out-Null
 
 Push-Location $root
+$previousCache = $env:GOCACHE
 try {
+    $env:GOCACHE = Join-Path $env:TEMP 'orbit-demo-go-cache'
     go build -o (Join-Path $work 'controller.exe') ./cmd/controller
     go build -o (Join-Path $work 'worker.exe') ./cmd/worker
     go build -o (Join-Path $work 'orbit.exe') ./cmd/orbit
@@ -25,5 +27,7 @@ finally {
     foreach ($process in @($workerA, $workerB, $controller)) {
         if ($null -ne $process -and -not $process.HasExited) { Stop-Process -Id $process.Id -Force }
     }
+    $env:GOCACHE = $previousCache
     Pop-Location
+    Remove-Item -LiteralPath $work -Recurse -Force
 }
