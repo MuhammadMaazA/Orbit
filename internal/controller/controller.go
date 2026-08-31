@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sort"
 	"sync"
+	"time"
 
 	"orbit/internal/model"
 	"orbit/internal/scheduler"
@@ -37,6 +38,7 @@ type workerState struct {
 	id       string
 	capacity model.Capacity
 	session  string
+	seen     time.Time
 }
 
 type jobState struct {
@@ -79,7 +81,32 @@ func (c *Controller) RegisterWorker(id, session string, capacity model.Capacity)
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.workers[id] = &workerState{id: id, session: session, capacity: capacity}
+	c.workers[id] = &workerState{id: id, session: session, capacity: capacity, seen: time.Now()}
+	return c.scheduleLocked(), nil
+}
+
+func (c *Controller) Heartbeat(workerID, session string, at time.Time) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	worker := c.workers[workerID]
+	if worker == nil || worker.session != session {
+		return fmt.Errorf("heartbeat worker %q: stale session", workerID)
+	}
+	worker.seen = at
+	return nil
+}
+
+func (c *Controller) ExpireWorkers(now time.Time, timeout time.Duration) ([]Assignment, error) {
+	if timeout <= 0 {
+		return nil, fmt.Errorf("expire workers: timeout must be positive")
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	for id, worker := range c.workers {
+		if now.Sub(worker.seen) >= timeout {
+			c.expireWorkerLocked(id, worker.session)
+		}
+	}
 	return c.scheduleLocked(), nil
 }
 
@@ -133,6 +160,11 @@ func (c *Controller) WorkerLost(workerID, session string) ([]Assignment, error) 
 	if worker == nil || worker.session != session {
 		return nil, nil
 	}
+	c.expireWorkerLocked(workerID, session)
+	return c.scheduleLocked(), nil
+}
+
+func (c *Controller) expireWorkerLocked(workerID, session string) {
 	delete(c.workers, workerID)
 	for _, job := range c.jobs {
 		if job.assignment == nil || job.assignment.WorkerID != workerID || job.assignment.SessionID != session {
@@ -146,7 +178,6 @@ func (c *Controller) WorkerLost(workerID, session string) ([]Assignment, error) 
 			job.status = Failed
 		}
 	}
-	return c.scheduleLocked(), nil
 }
 
 func (c *Controller) GetJob(id string) (JobView, bool) {

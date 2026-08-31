@@ -2,6 +2,7 @@ package controller
 
 import (
 	"testing"
+	"time"
 
 	"orbit/internal/model"
 	"orbit/internal/scheduler"
@@ -10,6 +11,26 @@ import (
 func testCapacity(cpu int) model.Capacity {
 	resources := model.ResourceRequest{CPU: cpu, MemoryMB: 1_024}
 	return model.Capacity{Total: resources, Available: resources}
+}
+
+func TestControllerExpiresWorkersAfterHeartbeatTimeout(t *testing.T) {
+	c, err := New(scheduler.FirstFit{}, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	base := time.Unix(100, 0)
+	if _, err := c.RegisterWorker("worker-a", "session-a", testCapacity(2)); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.Heartbeat("worker-a", "session-a", base); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.ExpireWorkers(base.Add(5*time.Second), 5*time.Second); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.Heartbeat("worker-a", "session-a", base.Add(6*time.Second)); err == nil {
+		t.Fatal("expired worker accepted heartbeat")
+	}
 }
 
 func TestControllerQueuesAndReschedules(t *testing.T) {
