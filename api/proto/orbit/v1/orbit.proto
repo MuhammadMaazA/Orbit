@@ -1,0 +1,56 @@
+syntax = "proto3";
+
+package orbit.v1;
+
+option go_package = "orbit/internal/rpc/orbitv1;orbitv1";
+
+message ResourceRequest {
+  int32 cpu = 1;
+  int32 memory_mb = 2;
+  int32 gpu = 3;
+}
+
+message Worker {
+  string id = 1;
+  string session_id = 2;
+  ResourceRequest total = 3;
+}
+
+message Job {
+  string id = 1;
+  ResourceRequest resources = 2;
+}
+
+message Assignment {
+  string id = 1;
+  Job job = 2;
+  string worker_id = 3;
+  string session_id = 4;
+  int32 attempt = 5;
+}
+
+message Completion {
+  Assignment assignment = 1;
+  bool success = 2;
+}
+
+message WorkerSessionMessage {
+  oneof payload {
+    Worker register = 1;
+    string heartbeat_session_id = 2;
+    Completion completion = 3;
+  }
+}
+
+message ControllerSessionMessage {
+  oneof payload {
+    Assignment assignment = 1;
+    string heartbeat_ack_session_id = 2;
+    string error = 3;
+  }
+}
+
+service OrbitController {
+  rpc WorkerSession(stream WorkerSessionMessage) returns (stream ControllerSessionMessage);
+  rpc Submit(Job) returns (Assignment);
+}
