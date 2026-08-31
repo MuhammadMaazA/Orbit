@@ -87,6 +87,19 @@ func TestControllerReconnectRequeuesOldSession(t *testing.T) {
 	}
 }
 
+func TestControllerRejectsDuplicateWorkerSession(t *testing.T) {
+	c, err := New(scheduler.FirstFit{}, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.RegisterWorker("worker-a", "session-a", testCapacity(2)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.RegisterWorker("worker-a", "session-a", testCapacity(2)); err == nil {
+		t.Fatal("duplicate worker session was accepted")
+	}
+}
+
 func TestControllerExpiresWorkersAfterHeartbeatTimeout(t *testing.T) {
 	c, err := New(scheduler.FirstFit{}, 2)
 	if err != nil {

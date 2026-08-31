@@ -130,7 +130,10 @@ func (c *Controller) RegisterWorker(id, session string, capacity model.Capacity)
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if previous := c.workers[id]; previous != nil && previous.session != session {
+	if previous := c.workers[id]; previous != nil {
+		if previous.session == session {
+			return nil, fmt.Errorf("register worker %q: session already registered", id)
+		}
 		c.expireWorkerLocked(id, previous.session)
 	}
 	c.workers[id] = &workerState{id: id, session: session, capacity: capacity, seen: c.now()}
