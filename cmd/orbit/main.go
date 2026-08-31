@@ -17,7 +17,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-const version = "v0.1.0"
+var version = "dev"
 
 func main() {
 	if len(os.Args) < 2 {
@@ -301,9 +301,6 @@ func printComparison(trace replay.Trace, baselineName, candidateName string, bas
 	}
 }
 
-// printDecision explains how a policy arrived at its choice for one job:
-// the worker it picked, plus (for capacity-driven policies) how every
-// candidate worker was evaluated and why the loser(s) were passed over.
 func printDecision(policyName string, decision replay.Decision) {
 	fmt.Printf("%s -> %s\n", policyName, decision.Selected)
 	if policyName == "first-fit" {
@@ -323,18 +320,18 @@ func printDecision(policyName string, decision replay.Decision) {
 func explainSelection(policyName string, decision replay.Decision) string {
 	switch policyName {
 	case "best-fit":
-		return "it left the least residual capacity among feasible workers (tightest fit)"
+		return "after placement it would have the least headroom left in its most-loaded resource (CPU, memory, or GPU, whichever is scarcest), the tightest fit among feasible workers"
 	case "bin-pack":
-		return "it was the most-utilized feasible worker, consolidating load onto fewer machines"
+		return "its most-loaded resource is already the closest to full among feasible workers, consolidating load onto fewer machines"
 	case "energy":
 		for _, candidate := range decision.Candidates {
 			if candidate.WorkerID != decision.Selected {
 				continue
 			}
 			if candidate.Active {
-				return "it was the most-utilized already-active feasible worker, avoiding powering on an idle one"
+				return "it was already active and its most-loaded resource is the closest to full among active feasible workers, avoiding powering on an idle one"
 			}
-			return "no active worker had capacity for this job, so it fell back to the most-utilized feasible worker overall"
+			return "no active worker had capacity for this job, so it fell back to the feasible worker whose most-loaded resource is closest to full"
 		}
 	}
 	return "it best matched the policy's selection criteria"

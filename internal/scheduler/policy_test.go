@@ -40,6 +40,54 @@ func TestPoliciesChooseDeterministically(t *testing.T) {
 	}
 }
 
+func TestBinPackUsesFractionalUtilizationNotRawUnits(t *testing.T) {
+	// worker-a: CPU 90% used, memory 20% used, GPU 100% used - GPU-bound.
+	// worker-b: CPU 40% used, memory 80% used, GPU 0% used - memory-bound.
+	// Summing raw CPU+MB+GPU units picks worker-b, because memory's large
+	// numbers swamp the score even though worker-a is maxed out on GPU.
+	// Fractional (dominant-resource) utilization must pick worker-a: its
+	// bottleneck resource (GPU) is more saturated than worker-b's (memory).
+	workers := []model.Worker{
+		{ID: "worker-a", Capacity: model.Capacity{
+			Total:     model.ResourceRequest{CPU: 10, MemoryMB: 1_000_000, GPU: 1},
+			Available: model.ResourceRequest{CPU: 1, MemoryMB: 800_000, GPU: 0},
+		}},
+		{ID: "worker-b", Capacity: model.Capacity{
+			Total:     model.ResourceRequest{CPU: 10, MemoryMB: 1_000_000, GPU: 1},
+			Available: model.ResourceRequest{CPU: 6, MemoryMB: 200_000, GPU: 1},
+		}},
+	}
+	idx, ok := (BinPack{}).Select(workers, model.Job{})
+	if !ok || idx != 0 {
+		t.Fatalf("Select() = %d, %t; want 0 (worker-a), true", idx, ok)
+	}
+}
+
+func TestBestFitUsesFractionalResidualNotLexicographicCPU(t *testing.T) {
+	// worker-a is CPU-heavy and memory-idle; placing the job leaves it 75%
+	// used on its bottleneck resource (memory). worker-b is CPU-light and
+	// memory-huge; placing the job leaves it only 50% used on its
+	// bottleneck (CPU), with memory barely touched. A CPU-first
+	// lexicographic comparison would pick worker-b purely because its raw
+	// leftover CPU count is smaller, ignoring that worker-a is proportionally
+	// the tighter fit. Best-fit must pick worker-a.
+	workers := []model.Worker{
+		{ID: "worker-a", Capacity: model.Capacity{
+			Total:     model.ResourceRequest{CPU: 1_000, MemoryMB: 200},
+			Available: model.ResourceRequest{CPU: 500, MemoryMB: 150},
+		}},
+		{ID: "worker-b", Capacity: model.Capacity{
+			Total:     model.ResourceRequest{CPU: 10, MemoryMB: 100_000},
+			Available: model.ResourceRequest{CPU: 6, MemoryMB: 99_900},
+		}},
+	}
+	job := model.Job{CPU: 1, MemoryMB: 100}
+	idx, ok := (BestFit{}).Select(workers, job)
+	if !ok || idx != 0 {
+		t.Fatalf("Select() = %d, %t; want 0 (worker-a), true", idx, ok)
+	}
+}
+
 func TestEnergyAwarePrefersActiveWorker(t *testing.T) {
 	workers := []model.Worker{
 		{ID: "active", Capacity: model.Capacity{Total: model.ResourceRequest{CPU: 8}, Available: model.ResourceRequest{CPU: 4}}},

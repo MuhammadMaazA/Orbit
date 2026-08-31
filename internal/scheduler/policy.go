@@ -82,25 +82,49 @@ func isActive(capacity model.Capacity) bool {
 	return capacity.Available.CPU < capacity.Total.CPU || capacity.Available.MemoryMB < capacity.Total.MemoryMB || capacity.Available.GPU < capacity.Total.GPU
 }
 
+// lessRemaining reports whether placing the job on a would leave a tighter
+// fit than placing it on b: a smaller fractional headroom in whichever
+// resource (CPU, memory, or GPU) is most constrained afterwards. Comparing
+// fractions of each worker's own capacity - rather than summing raw
+// CPU+MB+GPU units - keeps memory (typically thousands of MB) from
+// dominating the score just because its numbers are bigger.
 func lessRemaining(a, b model.Capacity, request model.ResourceRequest) bool {
-	acpu, amem, agpu := a.Available.CPU-request.CPU, a.Available.MemoryMB-request.MemoryMB, a.Available.GPU-request.GPU
-	bcpu, bmem, bgpu := b.Available.CPU-request.CPU, b.Available.MemoryMB-request.MemoryMB, b.Available.GPU-request.GPU
-	if acpu != bcpu {
-		return acpu < bcpu
-	}
-	if amem != bmem {
-		return amem < bmem
-	}
-	return agpu < bgpu
+	return dominantUtilizationAfter(a, request) > dominantUtilizationAfter(b, request)
 }
 
 func moreUtilized(a, b model.Capacity) bool {
-	aUsed, aTotal := (a.Total.CPU-a.Available.CPU)+(a.Total.MemoryMB-a.Available.MemoryMB)+(a.Total.GPU-a.Available.GPU), a.Total.CPU+a.Total.MemoryMB+a.Total.GPU
-	bUsed, bTotal := (b.Total.CPU-b.Available.CPU)+(b.Total.MemoryMB-b.Available.MemoryMB)+(b.Total.GPU-b.Available.GPU), b.Total.CPU+b.Total.MemoryMB+b.Total.GPU
-	if aTotal == 0 || bTotal == 0 {
-		return aTotal > bTotal
+	return dominantUtilization(a) > dominantUtilization(b)
+}
+
+func dominantUtilizationAfter(capacity model.Capacity, request model.ResourceRequest) float64 {
+	after := capacity
+	after.Available = model.ResourceRequest{
+		CPU:      capacity.Available.CPU - request.CPU,
+		MemoryMB: capacity.Available.MemoryMB - request.MemoryMB,
+		GPU:      capacity.Available.GPU - request.GPU,
 	}
-	return aUsed*bTotal > bUsed*aTotal
+	return dominantUtilization(after)
+}
+
+func dominantUtilization(capacity model.Capacity) float64 {
+	dominant := 0.0
+	if v := utilization(capacity.Total.CPU, capacity.Available.CPU); v > dominant {
+		dominant = v
+	}
+	if v := utilization(capacity.Total.MemoryMB, capacity.Available.MemoryMB); v > dominant {
+		dominant = v
+	}
+	if v := utilization(capacity.Total.GPU, capacity.Available.GPU); v > dominant {
+		dominant = v
+	}
+	return dominant
+}
+
+func utilization(total, available int) float64 {
+	if total <= 0 {
+		return 0
+	}
+	return float64(total-available) / float64(total)
 }
 
 func Schedule(workers []model.Worker, job model.Job, policy Policy) (string, error) {

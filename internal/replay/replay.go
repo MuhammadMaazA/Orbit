@@ -29,10 +29,6 @@ type Decision struct {
 	Candidates []Candidate
 }
 
-// Candidate records how one worker was evaluated for a scheduling decision:
-// whether it was feasible for the job, why it was rejected if not, whether
-// it already had work running on it, and (when feasible) the capacity that
-// would remain after the job landed there.
 type Candidate struct {
 	WorkerID string
 	Feasible bool
