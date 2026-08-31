@@ -21,6 +21,7 @@ const _ = grpc.SupportPackageIsVersion9
 const (
 	OrbitController_WorkerSession_FullMethodName = "/orbit.v1.OrbitController/WorkerSession"
 	OrbitController_Submit_FullMethodName        = "/orbit.v1.OrbitController/Submit"
+	OrbitController_GetJob_FullMethodName        = "/orbit.v1.OrbitController/GetJob"
 )
 
 // OrbitControllerClient is the client API for OrbitController service.
@@ -29,6 +30,7 @@ const (
 type OrbitControllerClient interface {
 	WorkerSession(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[WorkerSessionMessage, ControllerSessionMessage], error)
 	Submit(ctx context.Context, in *Job, opts ...grpc.CallOption) (*Assignment, error)
+	GetJob(ctx context.Context, in *JobStatusRequest, opts ...grpc.CallOption) (*JobStatusResponse, error)
 }
 
 type orbitControllerClient struct {
@@ -62,12 +64,23 @@ func (c *orbitControllerClient) Submit(ctx context.Context, in *Job, opts ...grp
 	return out, nil
 }
 
+func (c *orbitControllerClient) GetJob(ctx context.Context, in *JobStatusRequest, opts ...grpc.CallOption) (*JobStatusResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(JobStatusResponse)
+	err := c.cc.Invoke(ctx, OrbitController_GetJob_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // OrbitControllerServer is the server API for OrbitController service.
 // All implementations must embed UnimplementedOrbitControllerServer
 // for forward compatibility.
 type OrbitControllerServer interface {
 	WorkerSession(grpc.BidiStreamingServer[WorkerSessionMessage, ControllerSessionMessage]) error
 	Submit(context.Context, *Job) (*Assignment, error)
+	GetJob(context.Context, *JobStatusRequest) (*JobStatusResponse, error)
 	mustEmbedUnimplementedOrbitControllerServer()
 }
 
@@ -83,6 +96,9 @@ func (UnimplementedOrbitControllerServer) WorkerSession(grpc.BidiStreamingServer
 }
 func (UnimplementedOrbitControllerServer) Submit(context.Context, *Job) (*Assignment, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Submit not implemented")
+}
+func (UnimplementedOrbitControllerServer) GetJob(context.Context, *JobStatusRequest) (*JobStatusResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetJob not implemented")
 }
 func (UnimplementedOrbitControllerServer) mustEmbedUnimplementedOrbitControllerServer() {}
 func (UnimplementedOrbitControllerServer) testEmbeddedByValue()                         {}
@@ -130,6 +146,24 @@ func _OrbitController_Submit_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
+func _OrbitController_GetJob_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(JobStatusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(OrbitControllerServer).GetJob(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: OrbitController_GetJob_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(OrbitControllerServer).GetJob(ctx, req.(*JobStatusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // OrbitController_ServiceDesc is the grpc.ServiceDesc for OrbitController service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -140,6 +174,10 @@ var OrbitController_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Submit",
 			Handler:    _OrbitController_Submit_Handler,
+		},
+		{
+			MethodName: "GetJob",
+			Handler:    _OrbitController_GetJob_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

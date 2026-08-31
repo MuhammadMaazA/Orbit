@@ -7,6 +7,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"orbit/internal/controller"
+	"orbit/internal/metrics"
 	"orbit/internal/model"
 	v1 "orbit/internal/rpc/orbitv1/orbit/v1"
 )
@@ -14,10 +15,15 @@ import (
 type Server struct {
 	v1.UnimplementedOrbitControllerServer
 	controller *controller.Controller
+	metrics    *metrics.Metrics
 }
 
-func NewServer(controller *controller.Controller) *Server {
-	return &Server{controller: controller}
+func NewServer(controller *controller.Controller, instrumentation ...*metrics.Metrics) *Server {
+	server := &Server{controller: controller}
+	if len(instrumentation) > 0 {
+		server.metrics = instrumentation[0]
+	}
+	return server
 }
 
 func (s *Server) Submit(_ context.Context, request *v1.Job) (*v1.Assignment, error) {
@@ -28,10 +34,26 @@ func (s *Server) Submit(_ context.Context, request *v1.Job) (*v1.Assignment, err
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
+	if s.metrics != nil {
+		s.metrics.JobsSubmitted.Inc()
+	}
 	if len(assignments) == 0 {
 		return &v1.Assignment{}, nil
 	}
 	return toAssignment(assignments[0]), nil
+}
+
+func (s *Server) GetJob(_ context.Context, request *v1.JobStatusRequest) (*v1.JobStatusResponse, error) {
+	view, ok := s.controller.GetJob(request.GetJobId())
+	if !ok {
+		return nil, status.Error(codes.NotFound, "job not found")
+	}
+	response := &v1.JobStatusResponse{Job: &v1.Job{Id: view.Job.ID, Resources: &v1.ResourceRequest{Cpu: int32(view.Job.CPU), MemoryMb: int32(view.Job.MemoryMB), Gpu: int32(view.Job.GPU)}}, Status: string(view.Status), Attempt: int32(view.Attempts)}
+	if view.Assignment != nil {
+		response.WorkerId = view.Assignment.WorkerID
+		response.AssignmentId = view.Assignment.ID
+	}
+	return response, nil
 }
 
 func (s *Server) WorkerSession(stream v1.OrbitController_WorkerSessionServer) error {
@@ -50,6 +72,9 @@ func (s *Server) WorkerSession(stream v1.OrbitController_WorkerSessionServer) er
 			assignments, err := s.controller.RegisterWorker(workerID, sessionID, fromCapacity(payload.Register.Total))
 			if err != nil {
 				return status.Error(codes.InvalidArgument, err.Error())
+			}
+			if s.metrics != nil {
+				s.updateMetrics()
 			}
 			if err := sendAssignments(stream, assignments); err != nil {
 				return err
@@ -70,12 +95,27 @@ func (s *Server) WorkerSession(stream v1.OrbitController_WorkerSessionServer) er
 				return status.Error(codes.Internal, err.Error())
 			}
 			if accepted {
+				if s.metrics != nil {
+					if payload.Completion.Success {
+						s.metrics.JobsCompleted.Inc()
+					} else {
+						s.metrics.JobsFailed.Inc()
+					}
+					s.updateMetrics()
+				}
 				if err := sendAssignments(stream, assignments); err != nil {
 					return err
 				}
 			}
 		}
 	}
+}
+
+func (s *Server) updateMetrics() {
+	stats := s.controller.Stats()
+	s.metrics.Workers.Set(float64(stats.Workers))
+	s.metrics.Queued.Set(float64(stats.Queued))
+	s.metrics.Running.Set(float64(stats.Running))
 }
 
 var now = func() time.Time { return time.Now() }

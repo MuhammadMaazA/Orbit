@@ -13,13 +13,33 @@ import (
 )
 
 func main() {
-	if len(os.Args) < 2 || os.Args[1] != "submit" {
-		fmt.Fprintln(os.Stderr, "usage: orbit submit -id JOB_ID -cpu CPU -memory-mb MB [-gpu GPU] [-controller ADDRESS]")
+	if len(os.Args) < 2 || (os.Args[1] != "submit" && os.Args[1] != "status") {
+		fmt.Fprintln(os.Stderr, "usage: orbit submit|status [flags]")
 		os.Exit(2)
 	}
-	flags := flag.NewFlagSet("submit", flag.ExitOnError)
+	flags := flag.NewFlagSet(os.Args[1], flag.ExitOnError)
 	address := flags.String("controller", "127.0.0.1:9000", "controller address")
 	id := flags.String("id", "", "job ID")
+	if os.Args[1] == "status" {
+		_ = flags.Parse(os.Args[2:])
+		if *id == "" {
+			slog.Error("job ID is required")
+			os.Exit(2)
+		}
+		connection, err := grpc.Dial(*address, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		if err != nil {
+			slog.Error("connect controller", "error", err)
+			os.Exit(1)
+		}
+		defer connection.Close()
+		status, err := v1.NewOrbitControllerClient(connection).GetJob(context.Background(), &v1.JobStatusRequest{JobId: *id})
+		if err != nil {
+			slog.Error("get job", "error", err)
+			os.Exit(1)
+		}
+		fmt.Printf("%s status=%s attempt=%d worker=%s assignment=%s\n", status.Job.Id, status.Status, status.Attempt, status.WorkerId, status.AssignmentId)
+		return
+	}
 	cpu := flags.Int("cpu", 1, "CPU request")
 	memory := flags.Int("memory-mb", 1, "memory request in MB")
 	gpu := flags.Int("gpu", 0, "GPU request")

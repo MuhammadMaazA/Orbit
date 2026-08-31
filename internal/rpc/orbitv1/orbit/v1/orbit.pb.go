@@ -517,6 +517,126 @@ func (*ControllerSessionMessage_HeartbeatAckSessionId) isControllerSessionMessag
 
 func (*ControllerSessionMessage_Error) isControllerSessionMessage_Payload() {}
 
+type JobStatusRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	JobId         string                 `protobuf:"bytes,1,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *JobStatusRequest) Reset() {
+	*x = JobStatusRequest{}
+	mi := &file_orbit_v1_orbit_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *JobStatusRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*JobStatusRequest) ProtoMessage() {}
+
+func (x *JobStatusRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_orbit_v1_orbit_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use JobStatusRequest.ProtoReflect.Descriptor instead.
+func (*JobStatusRequest) Descriptor() ([]byte, []int) {
+	return file_orbit_v1_orbit_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *JobStatusRequest) GetJobId() string {
+	if x != nil {
+		return x.JobId
+	}
+	return ""
+}
+
+type JobStatusResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Job           *Job                   `protobuf:"bytes,1,opt,name=job,proto3" json:"job,omitempty"`
+	Status        string                 `protobuf:"bytes,2,opt,name=status,proto3" json:"status,omitempty"`
+	WorkerId      string                 `protobuf:"bytes,3,opt,name=worker_id,json=workerId,proto3" json:"worker_id,omitempty"`
+	AssignmentId  string                 `protobuf:"bytes,4,opt,name=assignment_id,json=assignmentId,proto3" json:"assignment_id,omitempty"`
+	Attempt       int32                  `protobuf:"varint,5,opt,name=attempt,proto3" json:"attempt,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *JobStatusResponse) Reset() {
+	*x = JobStatusResponse{}
+	mi := &file_orbit_v1_orbit_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *JobStatusResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*JobStatusResponse) ProtoMessage() {}
+
+func (x *JobStatusResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_orbit_v1_orbit_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use JobStatusResponse.ProtoReflect.Descriptor instead.
+func (*JobStatusResponse) Descriptor() ([]byte, []int) {
+	return file_orbit_v1_orbit_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *JobStatusResponse) GetJob() *Job {
+	if x != nil {
+		return x.Job
+	}
+	return nil
+}
+
+func (x *JobStatusResponse) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *JobStatusResponse) GetWorkerId() string {
+	if x != nil {
+		return x.WorkerId
+	}
+	return ""
+}
+
+func (x *JobStatusResponse) GetAssignmentId() string {
+	if x != nil {
+		return x.AssignmentId
+	}
+	return ""
+}
+
+func (x *JobStatusResponse) GetAttempt() int32 {
+	if x != nil {
+		return x.Attempt
+	}
+	return 0
+}
+
 var File_orbit_v1_orbit_proto protoreflect.FileDescriptor
 
 const file_orbit_v1_orbit_proto_rawDesc = "" +
@@ -561,10 +681,19 @@ const file_orbit_v1_orbit_proto_rawDesc = "" +
 	"assignment\x129\n" +
 	"\x18heartbeat_ack_session_id\x18\x02 \x01(\tH\x00R\x15heartbeatAckSessionId\x12\x16\n" +
 	"\x05error\x18\x03 \x01(\tH\x00R\x05errorB\t\n" +
-	"\apayload2\x99\x01\n" +
+	"\apayload\")\n" +
+	"\x10JobStatusRequest\x12\x15\n" +
+	"\x06job_id\x18\x01 \x01(\tR\x05jobId\"\xa8\x01\n" +
+	"\x11JobStatusResponse\x12\x1f\n" +
+	"\x03job\x18\x01 \x01(\v2\r.orbit.v1.JobR\x03job\x12\x16\n" +
+	"\x06status\x18\x02 \x01(\tR\x06status\x12\x1b\n" +
+	"\tworker_id\x18\x03 \x01(\tR\bworkerId\x12#\n" +
+	"\rassignment_id\x18\x04 \x01(\tR\fassignmentId\x12\x18\n" +
+	"\aattempt\x18\x05 \x01(\x05R\aattempt2\xdc\x01\n" +
 	"\x0fOrbitController\x12W\n" +
 	"\rWorkerSession\x12\x1e.orbit.v1.WorkerSessionMessage\x1a\".orbit.v1.ControllerSessionMessage(\x010\x01\x12-\n" +
-	"\x06Submit\x12\r.orbit.v1.Job\x1a\x14.orbit.v1.AssignmentB$Z\"orbit/internal/rpc/orbitv1;orbitv1b\x06proto3"
+	"\x06Submit\x12\r.orbit.v1.Job\x1a\x14.orbit.v1.Assignment\x12A\n" +
+	"\x06GetJob\x12\x1a.orbit.v1.JobStatusRequest\x1a\x1b.orbit.v1.JobStatusResponseB$Z\"orbit/internal/rpc/orbitv1;orbitv1b\x06proto3"
 
 var (
 	file_orbit_v1_orbit_proto_rawDescOnce sync.Once
@@ -578,7 +707,7 @@ func file_orbit_v1_orbit_proto_rawDescGZIP() []byte {
 	return file_orbit_v1_orbit_proto_rawDescData
 }
 
-var file_orbit_v1_orbit_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
+var file_orbit_v1_orbit_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
 var file_orbit_v1_orbit_proto_goTypes = []any{
 	(*ResourceRequest)(nil),          // 0: orbit.v1.ResourceRequest
 	(*Worker)(nil),                   // 1: orbit.v1.Worker
@@ -587,24 +716,29 @@ var file_orbit_v1_orbit_proto_goTypes = []any{
 	(*Completion)(nil),               // 4: orbit.v1.Completion
 	(*WorkerSessionMessage)(nil),     // 5: orbit.v1.WorkerSessionMessage
 	(*ControllerSessionMessage)(nil), // 6: orbit.v1.ControllerSessionMessage
+	(*JobStatusRequest)(nil),         // 7: orbit.v1.JobStatusRequest
+	(*JobStatusResponse)(nil),        // 8: orbit.v1.JobStatusResponse
 }
 var file_orbit_v1_orbit_proto_depIdxs = []int32{
-	0, // 0: orbit.v1.Worker.total:type_name -> orbit.v1.ResourceRequest
-	0, // 1: orbit.v1.Job.resources:type_name -> orbit.v1.ResourceRequest
-	2, // 2: orbit.v1.Assignment.job:type_name -> orbit.v1.Job
-	3, // 3: orbit.v1.Completion.assignment:type_name -> orbit.v1.Assignment
-	1, // 4: orbit.v1.WorkerSessionMessage.register:type_name -> orbit.v1.Worker
-	4, // 5: orbit.v1.WorkerSessionMessage.completion:type_name -> orbit.v1.Completion
-	3, // 6: orbit.v1.ControllerSessionMessage.assignment:type_name -> orbit.v1.Assignment
-	5, // 7: orbit.v1.OrbitController.WorkerSession:input_type -> orbit.v1.WorkerSessionMessage
-	2, // 8: orbit.v1.OrbitController.Submit:input_type -> orbit.v1.Job
-	6, // 9: orbit.v1.OrbitController.WorkerSession:output_type -> orbit.v1.ControllerSessionMessage
-	3, // 10: orbit.v1.OrbitController.Submit:output_type -> orbit.v1.Assignment
-	9, // [9:11] is the sub-list for method output_type
-	7, // [7:9] is the sub-list for method input_type
-	7, // [7:7] is the sub-list for extension type_name
-	7, // [7:7] is the sub-list for extension extendee
-	0, // [0:7] is the sub-list for field type_name
+	0,  // 0: orbit.v1.Worker.total:type_name -> orbit.v1.ResourceRequest
+	0,  // 1: orbit.v1.Job.resources:type_name -> orbit.v1.ResourceRequest
+	2,  // 2: orbit.v1.Assignment.job:type_name -> orbit.v1.Job
+	3,  // 3: orbit.v1.Completion.assignment:type_name -> orbit.v1.Assignment
+	1,  // 4: orbit.v1.WorkerSessionMessage.register:type_name -> orbit.v1.Worker
+	4,  // 5: orbit.v1.WorkerSessionMessage.completion:type_name -> orbit.v1.Completion
+	3,  // 6: orbit.v1.ControllerSessionMessage.assignment:type_name -> orbit.v1.Assignment
+	2,  // 7: orbit.v1.JobStatusResponse.job:type_name -> orbit.v1.Job
+	5,  // 8: orbit.v1.OrbitController.WorkerSession:input_type -> orbit.v1.WorkerSessionMessage
+	2,  // 9: orbit.v1.OrbitController.Submit:input_type -> orbit.v1.Job
+	7,  // 10: orbit.v1.OrbitController.GetJob:input_type -> orbit.v1.JobStatusRequest
+	6,  // 11: orbit.v1.OrbitController.WorkerSession:output_type -> orbit.v1.ControllerSessionMessage
+	3,  // 12: orbit.v1.OrbitController.Submit:output_type -> orbit.v1.Assignment
+	8,  // 13: orbit.v1.OrbitController.GetJob:output_type -> orbit.v1.JobStatusResponse
+	11, // [11:14] is the sub-list for method output_type
+	8,  // [8:11] is the sub-list for method input_type
+	8,  // [8:8] is the sub-list for extension type_name
+	8,  // [8:8] is the sub-list for extension extendee
+	0,  // [0:8] is the sub-list for field type_name
 }
 
 func init() { file_orbit_v1_orbit_proto_init() }
@@ -628,7 +762,7 @@ func file_orbit_v1_orbit_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_orbit_v1_orbit_proto_rawDesc), len(file_orbit_v1_orbit_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   7,
+			NumMessages:   9,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

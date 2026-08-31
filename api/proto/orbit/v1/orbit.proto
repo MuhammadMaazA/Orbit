@@ -50,7 +50,20 @@ message ControllerSessionMessage {
   }
 }
 
+message JobStatusRequest {
+  string job_id = 1;
+}
+
+message JobStatusResponse {
+  Job job = 1;
+  string status = 2;
+  string worker_id = 3;
+  string assignment_id = 4;
+  int32 attempt = 5;
+}
+
 service OrbitController {
   rpc WorkerSession(stream WorkerSessionMessage) returns (stream ControllerSessionMessage);
   rpc Submit(Job) returns (Assignment);
+  rpc GetJob(JobStatusRequest) returns (JobStatusResponse);
 }

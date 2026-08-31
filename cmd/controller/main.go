@@ -1,16 +1,21 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"log/slog"
 	"net"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"google.golang.org/grpc"
 	"orbit/internal/controller"
+	"orbit/internal/metrics"
 	"orbit/internal/rpc"
 	v1 "orbit/internal/rpc/orbitv1/orbit/v1"
 	"orbit/internal/scheduler"
@@ -32,7 +37,14 @@ func main() {
 		os.Exit(1)
 	}
 	server := grpc.NewServer()
-	v1.RegisterOrbitControllerServer(server, rpc.NewServer(state))
+	registry := prometheus.NewRegistry()
+	instrumentation := metrics.New(registry)
+	v1.RegisterOrbitControllerServer(server, rpc.NewServer(state, instrumentation))
+	httpMux := http.NewServeMux()
+	httpMux.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{}))
+	httpMux.HandleFunc("/healthz", func(response http.ResponseWriter, _ *http.Request) { response.WriteHeader(http.StatusOK) })
+	httpMux.HandleFunc("/readyz", func(response http.ResponseWriter, _ *http.Request) { response.WriteHeader(http.StatusOK) })
+	httpServer := &http.Server{Addr: ":9090", Handler: httpMux}
 
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
@@ -50,7 +62,13 @@ func main() {
 			slog.Error("serve", "error", err)
 		}
 	}()
+	go func() {
+		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			slog.Error("metrics server", "error", err)
+		}
+	}()
 	slog.Info("controller listening", "address", *address)
 	<-stop
 	server.GracefulStop()
+	_ = httpServer.Shutdown(context.Background())
 }

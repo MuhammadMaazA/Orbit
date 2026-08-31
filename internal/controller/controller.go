@@ -34,6 +34,14 @@ type JobView struct {
 	Attempts   int
 }
 
+type Stats struct {
+	Workers   int
+	Queued    int
+	Running   int
+	Completed int
+	Failed    int
+}
+
 type workerState struct {
 	id       string
 	capacity model.Capacity
@@ -188,6 +196,23 @@ func (c *Controller) GetJob(id string) (JobView, bool) {
 		return JobView{}, false
 	}
 	return JobView{Job: job.job, Status: job.status, Assignment: copyAssignment(job.assignment), Attempts: job.attempts}, true
+}
+
+func (c *Controller) Stats() Stats {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	stats := Stats{Workers: len(c.workers), Queued: len(c.queue)}
+	for _, job := range c.jobs {
+		switch job.status {
+		case Running:
+			stats.Running++
+		case Completed:
+			stats.Completed++
+		case Failed:
+			stats.Failed++
+		}
+	}
+	return stats
 }
 
 func (c *Controller) scheduleLocked() []Assignment {
