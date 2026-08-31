@@ -67,6 +67,7 @@ func Run(policy scheduler.Policy, workers []Worker, jobs []Job) (Result, error) 
 			return Result{}, fmt.Errorf("simulate job %q: invalid timing", job.Spec.ID)
 		}
 	}
+	jobs = append([]Job(nil), jobs...)
 	sort.SliceStable(jobs, func(i, j int) bool { return jobs[i].Arrival < jobs[j].Arrival })
 	workerState := make([]model.Worker, len(workers))
 	seenWorkers := make(map[string]struct{}, len(workers))
@@ -118,20 +119,38 @@ func Run(policy scheduler.Policy, workers []Worker, jobs []Job) (Result, error) 
 			turnaround += lastTime - jobByID[e.jobID].Arrival
 		}
 		for len(queue) > 0 {
-			candidate := jobByID[queue[0]]
-			workersForPolicy := make([]model.Worker, len(workerState))
-			copy(workersForPolicy, workerState)
-			index, ok := policy.Select(workersForPolicy, candidate.Spec)
-			if !ok {
+			sort.SliceStable(queue, func(i, j int) bool {
+				left, right := jobByID[queue[i]], jobByID[queue[j]]
+				leftPriority := left.Spec.Priority + (lastTime-left.Arrival)/30
+				rightPriority := right.Spec.Priority + (lastTime-right.Arrival)/30
+				if leftPriority != rightPriority {
+					return leftPriority > rightPriority
+				}
+				return left.Arrival < right.Arrival
+			})
+			candidateIndex, workerIndex := -1, -1
+			var candidate Job
+			for queueIndex, jobID := range queue {
+				candidate = jobByID[jobID]
+				workersForPolicy := make([]model.Worker, len(workerState))
+				copy(workersForPolicy, workerState)
+				selectedWorker, ok := policy.Select(workersForPolicy, candidate.Spec)
+				if !ok {
+					continue
+				}
+				candidateIndex, workerIndex = queueIndex, selectedWorker
 				break
 			}
-			if err := workerState[index].Capacity.Allocate(candidate.Spec.Resources()); err != nil {
+			if candidateIndex < 0 {
+				break
+			}
+			if err := workerState[workerIndex].Capacity.Allocate(candidate.Spec.Resources()); err != nil {
 				return Result{}, err
 			}
-			queue = queue[1:]
+			queue = append(queue[:candidateIndex], queue[candidateIndex+1:]...)
 			starts[candidate.Spec.ID] = lastTime
 			wait += lastTime - candidate.Arrival
-			heap.Push(events, event{at: lastTime + candidate.Duration, order: len(starts), jobID: candidate.Spec.ID, worker: index})
+			heap.Push(events, event{at: lastTime + candidate.Duration, order: len(starts), jobID: candidate.Spec.ID, worker: workerIndex})
 		}
 		if events.Len() > 0 && (len(queue) == 0 || (*events)[0].at > lastTime) {
 			lastTime = (*events)[0].at
