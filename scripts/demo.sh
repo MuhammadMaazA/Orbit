@@ -16,7 +16,7 @@ go build -o "$work/controller" ./cmd/controller
 go build -o "$work/worker" ./cmd/worker
 go build -o "$work/orbit" ./cmd/orbit
 
-"$work/controller" -addr 127.0.0.1:19000 -metrics-addr 127.0.0.1:19090 & controller=$!
+"$work/controller" -addr 127.0.0.1:19000 -metrics-addr 127.0.0.1:19090 -policy energy & controller=$!
 "$work/worker" -controller 127.0.0.1:19000 -id worker-b -duration 10s & worker_b=$!
 "$work/worker" -controller 127.0.0.1:19000 -id worker-a -duration 10s & worker_a=$!
 sleep 2

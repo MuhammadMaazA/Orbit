@@ -11,7 +11,7 @@ try {
     go build -o (Join-Path $work 'worker.exe') ./cmd/worker
     go build -o (Join-Path $work 'orbit.exe') ./cmd/orbit
 
-    $controller = Start-Process -WindowStyle Hidden -FilePath (Join-Path $work 'controller.exe') -ArgumentList '-addr','127.0.0.1:19000','-worker-timeout','2s' -PassThru
+    $controller = Start-Process -WindowStyle Hidden -FilePath (Join-Path $work 'controller.exe') -ArgumentList '-addr','127.0.0.1:19000','-worker-timeout','2s','-policy','energy' -PassThru
     $workerB = Start-Process -WindowStyle Hidden -FilePath (Join-Path $work 'worker.exe') -ArgumentList '-controller','127.0.0.1:19000','-id','worker-b','-duration','10s' -PassThru
     $workerA = Start-Process -WindowStyle Hidden -FilePath (Join-Path $work 'worker.exe') -ArgumentList '-controller','127.0.0.1:19000','-id','worker-a','-duration','10s' -PassThru
     Start-Sleep -Seconds 2
