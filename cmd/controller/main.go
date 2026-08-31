@@ -77,7 +77,7 @@ func main() {
 					slog.Error("expire workers", "error", err)
 				}
 				stats := state.Stats()
-				instrumentation.SetGauges(stats.Workers, stats.Queued, stats.Running)
+				instrumentation.SetGauges(stats.Workers, stats.Draining, stats.Queued, stats.Running)
 			}
 		}
 	}()

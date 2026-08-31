@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"time"
 
@@ -15,10 +16,12 @@ import (
 
 type Server struct {
 	v1.UnimplementedOrbitControllerServer
-	controller *controller.Controller
-	metrics    *metrics.Metrics
-	mu         sync.RWMutex
-	sessions   map[string]*workerSession
+	controller       *controller.Controller
+	metrics          *metrics.Metrics
+	mu               sync.RWMutex
+	metricsMu        sync.Mutex
+	sessions         map[string]*workerSession
+	reportedRequeued uint64
 }
 
 type workerSession struct {
@@ -52,6 +55,12 @@ func (s *Server) Submit(_ context.Context, request *v1.Job) (*v1.Assignment, err
 	}
 	assignments, err := s.controller.Submit(fromJob(request))
 	if err != nil {
+		if errors.Is(err, controller.ErrQueueFull) && s.metrics != nil {
+			s.metrics.JobsRejected.Inc()
+		}
+		if errors.Is(err, controller.ErrQueueFull) {
+			return nil, status.Error(codes.ResourceExhausted, err.Error())
+		}
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 	if s.metrics != nil {
@@ -83,6 +92,7 @@ func (s *Server) DrainWorker(_ context.Context, request *v1.WorkerStateRequest) 
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
 	if s.metrics != nil {
+		s.metrics.WorkersRegistered.Inc()
 		s.updateMetrics()
 	}
 	return &v1.WorkerStateResponse{Draining: true}, nil
@@ -162,6 +172,8 @@ func (s *Server) WorkerSession(stream v1.OrbitController_WorkerSessionServer) er
 					s.updateMetrics()
 				}
 				s.dispatch(assignments)
+			} else if s.metrics != nil {
+				s.metrics.StaleResultsRejected.Inc()
 			}
 		}
 	}
@@ -173,6 +185,9 @@ func (s *Server) dispatch(assignments []controller.Assignment) {
 		session := s.sessions[assignment.WorkerID]
 		s.mu.RUnlock()
 		if session != nil {
+			if s.metrics != nil {
+				s.metrics.SchedulingAttempts.Inc()
+			}
 			_ = session.send(&v1.ControllerSessionMessage{Payload: &v1.ControllerSessionMessage_Assignment{Assignment: toAssignment(assignment)}})
 		}
 	}
@@ -194,7 +209,13 @@ func (s *Server) removeSession(workerID string, session *workerSession) {
 
 func (s *Server) updateMetrics() {
 	stats := s.controller.Stats()
-	s.metrics.SetGauges(stats.Workers, stats.Queued, stats.Running)
+	s.metricsMu.Lock()
+	if stats.Requeued > s.reportedRequeued {
+		s.metrics.JobsRequeued.Add(float64(stats.Requeued - s.reportedRequeued))
+		s.reportedRequeued = stats.Requeued
+	}
+	s.metricsMu.Unlock()
+	s.metrics.SetGauges(stats.Workers, stats.Draining, stats.Queued, stats.Running)
 }
 
 var now = func() time.Time { return time.Now() }

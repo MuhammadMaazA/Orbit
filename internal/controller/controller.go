@@ -50,6 +50,7 @@ type Stats struct {
 	Running   int
 	Completed int
 	Failed    int
+	Requeued  uint64
 }
 
 type workerState struct {
@@ -80,6 +81,7 @@ type Controller struct {
 	aging       time.Duration
 	nextSeq     uint64
 	now         func() time.Time
+	requeued    uint64
 }
 
 func New(policy scheduler.Policy, maxAttempts int) (*Controller, error) {
@@ -251,6 +253,7 @@ func (c *Controller) expireWorkerLocked(workerID, session string) {
 		job.assignment = nil
 		if job.attempts < c.maxAttempts {
 			job.status = Queued
+			c.requeued++
 			c.enqueueLocked(job)
 		} else {
 			job.status = Failed
@@ -278,7 +281,7 @@ func (c *Controller) GetJob(id string) (JobView, bool) {
 func (c *Controller) Stats() Stats {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	stats := Stats{Workers: len(c.workers), Queued: len(c.queue)}
+	stats := Stats{Workers: len(c.workers), Queued: len(c.queue), Requeued: c.requeued}
 	for _, job := range c.jobs {
 		switch job.status {
 		case Running:
