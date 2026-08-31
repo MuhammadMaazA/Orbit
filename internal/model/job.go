@@ -5,6 +5,7 @@ type Job struct {
 	CPU      int
 	MemoryMB int
 	GPU      int
+	Priority int
 }
 
 func (j Job) Resources() ResourceRequest {

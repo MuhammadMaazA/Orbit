@@ -19,6 +19,7 @@ message Worker {
 message Job {
   string id = 1;
   ResourceRequest resources = 2;
+  int32 priority = 3;
 }
 
 message Assignment {
@@ -62,8 +63,18 @@ message JobStatusResponse {
   int32 attempt = 5;
 }
 
+message WorkerStateRequest {
+  string worker_id = 1;
+}
+
+message WorkerStateResponse {
+  bool draining = 1;
+}
+
 service OrbitController {
   rpc WorkerSession(stream WorkerSessionMessage) returns (stream ControllerSessionMessage);
   rpc Submit(Job) returns (Assignment);
   rpc GetJob(JobStatusRequest) returns (JobStatusResponse);
+  rpc DrainWorker(WorkerStateRequest) returns (WorkerStateResponse);
+  rpc UndrainWorker(WorkerStateRequest) returns (WorkerStateResponse);
 }

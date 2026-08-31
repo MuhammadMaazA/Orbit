@@ -70,12 +70,34 @@ func (s *Server) GetJob(_ context.Context, request *v1.JobStatusRequest) (*v1.Jo
 	if !ok {
 		return nil, status.Error(codes.NotFound, "job not found")
 	}
-	response := &v1.JobStatusResponse{Job: &v1.Job{Id: view.Job.ID, Resources: &v1.ResourceRequest{Cpu: int32(view.Job.CPU), MemoryMb: int32(view.Job.MemoryMB), Gpu: int32(view.Job.GPU)}}, Status: string(view.Status), Attempt: int32(view.Attempts)}
+	response := &v1.JobStatusResponse{Job: &v1.Job{Id: view.Job.ID, Resources: &v1.ResourceRequest{Cpu: int32(view.Job.CPU), MemoryMb: int32(view.Job.MemoryMB), Gpu: int32(view.Job.GPU)}, Priority: int32(view.Job.Priority)}, Status: string(view.Status), Attempt: int32(view.Attempts)}
 	if view.Assignment != nil {
 		response.WorkerId = view.Assignment.WorkerID
 		response.AssignmentId = view.Assignment.ID
 	}
 	return response, nil
+}
+
+func (s *Server) DrainWorker(_ context.Context, request *v1.WorkerStateRequest) (*v1.WorkerStateResponse, error) {
+	if err := s.controller.DrainWorker(request.GetWorkerId()); err != nil {
+		return nil, status.Error(codes.NotFound, err.Error())
+	}
+	if s.metrics != nil {
+		s.updateMetrics()
+	}
+	return &v1.WorkerStateResponse{Draining: true}, nil
+}
+
+func (s *Server) UndrainWorker(_ context.Context, request *v1.WorkerStateRequest) (*v1.WorkerStateResponse, error) {
+	assignments, err := s.controller.UndrainWorker(request.GetWorkerId())
+	if err != nil {
+		return nil, status.Error(codes.NotFound, err.Error())
+	}
+	s.dispatch(assignments)
+	if s.metrics != nil {
+		s.updateMetrics()
+	}
+	return &v1.WorkerStateResponse{}, nil
 }
 
 func (s *Server) WorkerSession(stream v1.OrbitController_WorkerSessionServer) error {
@@ -178,7 +200,7 @@ func (s *Server) updateMetrics() {
 var now = func() time.Time { return time.Now() }
 
 func fromJob(job *v1.Job) model.Job {
-	return model.Job{ID: job.Id, CPU: int(job.Resources.Cpu), MemoryMB: int(job.Resources.MemoryMb), GPU: int(job.Resources.Gpu)}
+	return model.Job{ID: job.Id, CPU: int(job.Resources.Cpu), MemoryMB: int(job.Resources.MemoryMb), GPU: int(job.Resources.Gpu), Priority: int(job.Priority)}
 }
 
 func fromCapacity(resources *v1.ResourceRequest) model.Capacity {
@@ -191,7 +213,7 @@ func fromAssignment(assignment *v1.Assignment) controller.Assignment {
 }
 
 func toAssignment(assignment controller.Assignment) *v1.Assignment {
-	return &v1.Assignment{Id: assignment.ID, Job: &v1.Job{Id: assignment.Job.ID, Resources: &v1.ResourceRequest{Cpu: int32(assignment.Job.CPU), MemoryMb: int32(assignment.Job.MemoryMB), Gpu: int32(assignment.Job.GPU)}}, WorkerId: assignment.WorkerID, SessionId: assignment.SessionID, Attempt: int32(assignment.Attempt)}
+	return &v1.Assignment{Id: assignment.ID, Job: &v1.Job{Id: assignment.Job.ID, Resources: &v1.ResourceRequest{Cpu: int32(assignment.Job.CPU), MemoryMb: int32(assignment.Job.MemoryMB), Gpu: int32(assignment.Job.GPU)}, Priority: int32(assignment.Job.Priority)}, WorkerId: assignment.WorkerID, SessionId: assignment.SessionID, Attempt: int32(assignment.Attempt)}
 }
 
 var _ v1.OrbitControllerServer = (*Server)(nil)

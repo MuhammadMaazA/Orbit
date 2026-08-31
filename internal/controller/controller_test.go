@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"errors"
 	"testing"
 	"time"
 
@@ -11,6 +12,79 @@ import (
 func testCapacity(cpu int) model.Capacity {
 	resources := model.ResourceRequest{CPU: cpu, MemoryMB: 1_024}
 	return model.Capacity{Total: resources, Available: resources}
+}
+
+func TestControllerPrioritizesQueuedJobsAndSkipsBlockedJobs(t *testing.T) {
+	c, err := NewWithConfig(scheduler.FirstFit{}, Config{MaxAttempts: 2, MaxQueuedJobs: 10, AgingInterval: time.Hour})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.Submit(model.Job{ID: "blocked", CPU: 3, Priority: 3}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.Submit(model.Job{ID: "ready", CPU: 1, Priority: 1}); err != nil {
+		t.Fatal(err)
+	}
+	assignments, err := c.RegisterWorker("worker-a", "session-a", testCapacity(1))
+	if err != nil || len(assignments) != 1 || assignments[0].Job.ID != "ready" {
+		t.Fatalf("RegisterWorker() = %+v, %v", assignments, err)
+	}
+}
+
+func TestControllerDrainAndUndrain(t *testing.T) {
+	c, err := New(scheduler.FirstFit{}, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.RegisterWorker("worker-a", "session-a", testCapacity(2)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.RegisterWorker("worker-b", "session-b", testCapacity(2)); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.DrainWorker("worker-a"); err != nil {
+		t.Fatal(err)
+	}
+	if assignments, err := c.Submit(model.Job{ID: "job-1", CPU: 1}); err != nil || len(assignments) != 1 || assignments[0].WorkerID != "worker-b" {
+		t.Fatalf("Submit() = %+v, %v", assignments, err)
+	}
+	if stats := c.Stats(); stats.Draining != 1 {
+		t.Fatalf("Stats() = %+v", stats)
+	}
+	if assignments, err := c.UndrainWorker("worker-a"); err != nil || len(assignments) != 0 {
+		t.Fatalf("UndrainWorker() = %+v, %v", assignments, err)
+	}
+}
+
+func TestControllerRejectsQueuedJobsOverLimit(t *testing.T) {
+	c, err := NewWithConfig(scheduler.FirstFit{}, Config{MaxAttempts: 2, MaxQueuedJobs: 1, AgingInterval: time.Hour})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.Submit(model.Job{ID: "job-1", CPU: 2}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.Submit(model.Job{ID: "job-2", CPU: 2}); !errors.Is(err, ErrQueueFull) {
+		t.Fatalf("second Submit() error = %v, want ErrQueueFull", err)
+	}
+}
+
+func TestControllerReconnectRequeuesOldSession(t *testing.T) {
+	c, err := New(scheduler.FirstFit{}, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.RegisterWorker("worker-a", "session-a", testCapacity(2)); err != nil {
+		t.Fatal(err)
+	}
+	assignments, err := c.Submit(model.Job{ID: "job-1", CPU: 2})
+	if err != nil || len(assignments) != 1 {
+		t.Fatalf("Submit() = %+v, %v", assignments, err)
+	}
+	reconnected, err := c.RegisterWorker("worker-a", "session-b", testCapacity(2))
+	if err != nil || len(reconnected) != 1 || reconnected[0].SessionID != "session-b" || reconnected[0].Attempt != 2 {
+		t.Fatalf("reconnect = %+v, %v", reconnected, err)
+	}
 }
 
 func TestControllerExpiresWorkersAfterHeartbeatTimeout(t *testing.T) {

@@ -145,6 +145,7 @@ type Job struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	Resources     *ResourceRequest       `protobuf:"bytes,2,opt,name=resources,proto3" json:"resources,omitempty"`
+	Priority      int32                  `protobuf:"varint,3,opt,name=priority,proto3" json:"priority,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -191,6 +192,13 @@ func (x *Job) GetResources() *ResourceRequest {
 		return x.Resources
 	}
 	return nil
+}
+
+func (x *Job) GetPriority() int32 {
+	if x != nil {
+		return x.Priority
+	}
+	return 0
 }
 
 type Assignment struct {
@@ -637,6 +645,94 @@ func (x *JobStatusResponse) GetAttempt() int32 {
 	return 0
 }
 
+type WorkerStateRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	WorkerId      string                 `protobuf:"bytes,1,opt,name=worker_id,json=workerId,proto3" json:"worker_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *WorkerStateRequest) Reset() {
+	*x = WorkerStateRequest{}
+	mi := &file_orbit_v1_orbit_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *WorkerStateRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WorkerStateRequest) ProtoMessage() {}
+
+func (x *WorkerStateRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_orbit_v1_orbit_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use WorkerStateRequest.ProtoReflect.Descriptor instead.
+func (*WorkerStateRequest) Descriptor() ([]byte, []int) {
+	return file_orbit_v1_orbit_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *WorkerStateRequest) GetWorkerId() string {
+	if x != nil {
+		return x.WorkerId
+	}
+	return ""
+}
+
+type WorkerStateResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Draining      bool                   `protobuf:"varint,1,opt,name=draining,proto3" json:"draining,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *WorkerStateResponse) Reset() {
+	*x = WorkerStateResponse{}
+	mi := &file_orbit_v1_orbit_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *WorkerStateResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WorkerStateResponse) ProtoMessage() {}
+
+func (x *WorkerStateResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_orbit_v1_orbit_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use WorkerStateResponse.ProtoReflect.Descriptor instead.
+func (*WorkerStateResponse) Descriptor() ([]byte, []int) {
+	return file_orbit_v1_orbit_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *WorkerStateResponse) GetDraining() bool {
+	if x != nil {
+		return x.Draining
+	}
+	return false
+}
+
 var File_orbit_v1_orbit_proto protoreflect.FileDescriptor
 
 const file_orbit_v1_orbit_proto_rawDesc = "" +
@@ -650,10 +746,11 @@ const file_orbit_v1_orbit_proto_rawDesc = "" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x02 \x01(\tR\tsessionId\x12/\n" +
-	"\x05total\x18\x03 \x01(\v2\x19.orbit.v1.ResourceRequestR\x05total\"N\n" +
+	"\x05total\x18\x03 \x01(\v2\x19.orbit.v1.ResourceRequestR\x05total\"j\n" +
 	"\x03Job\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x127\n" +
-	"\tresources\x18\x02 \x01(\v2\x19.orbit.v1.ResourceRequestR\tresources\"\x93\x01\n" +
+	"\tresources\x18\x02 \x01(\v2\x19.orbit.v1.ResourceRequestR\tresources\x12\x1a\n" +
+	"\bpriority\x18\x03 \x01(\x05R\bpriority\"\x93\x01\n" +
 	"\n" +
 	"Assignment\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1f\n" +
@@ -689,11 +786,17 @@ const file_orbit_v1_orbit_proto_rawDesc = "" +
 	"\x06status\x18\x02 \x01(\tR\x06status\x12\x1b\n" +
 	"\tworker_id\x18\x03 \x01(\tR\bworkerId\x12#\n" +
 	"\rassignment_id\x18\x04 \x01(\tR\fassignmentId\x12\x18\n" +
-	"\aattempt\x18\x05 \x01(\x05R\aattempt2\xdc\x01\n" +
+	"\aattempt\x18\x05 \x01(\x05R\aattempt\"1\n" +
+	"\x12WorkerStateRequest\x12\x1b\n" +
+	"\tworker_id\x18\x01 \x01(\tR\bworkerId\"1\n" +
+	"\x13WorkerStateResponse\x12\x1a\n" +
+	"\bdraining\x18\x01 \x01(\bR\bdraining2\xf6\x02\n" +
 	"\x0fOrbitController\x12W\n" +
 	"\rWorkerSession\x12\x1e.orbit.v1.WorkerSessionMessage\x1a\".orbit.v1.ControllerSessionMessage(\x010\x01\x12-\n" +
 	"\x06Submit\x12\r.orbit.v1.Job\x1a\x14.orbit.v1.Assignment\x12A\n" +
-	"\x06GetJob\x12\x1a.orbit.v1.JobStatusRequest\x1a\x1b.orbit.v1.JobStatusResponseB$Z\"orbit/internal/rpc/orbitv1;orbitv1b\x06proto3"
+	"\x06GetJob\x12\x1a.orbit.v1.JobStatusRequest\x1a\x1b.orbit.v1.JobStatusResponse\x12J\n" +
+	"\vDrainWorker\x12\x1c.orbit.v1.WorkerStateRequest\x1a\x1d.orbit.v1.WorkerStateResponse\x12L\n" +
+	"\rUndrainWorker\x12\x1c.orbit.v1.WorkerStateRequest\x1a\x1d.orbit.v1.WorkerStateResponseB$Z\"orbit/internal/rpc/orbitv1;orbitv1b\x06proto3"
 
 var (
 	file_orbit_v1_orbit_proto_rawDescOnce sync.Once
@@ -707,7 +810,7 @@ func file_orbit_v1_orbit_proto_rawDescGZIP() []byte {
 	return file_orbit_v1_orbit_proto_rawDescData
 }
 
-var file_orbit_v1_orbit_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
+var file_orbit_v1_orbit_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
 var file_orbit_v1_orbit_proto_goTypes = []any{
 	(*ResourceRequest)(nil),          // 0: orbit.v1.ResourceRequest
 	(*Worker)(nil),                   // 1: orbit.v1.Worker
@@ -718,6 +821,8 @@ var file_orbit_v1_orbit_proto_goTypes = []any{
 	(*ControllerSessionMessage)(nil), // 6: orbit.v1.ControllerSessionMessage
 	(*JobStatusRequest)(nil),         // 7: orbit.v1.JobStatusRequest
 	(*JobStatusResponse)(nil),        // 8: orbit.v1.JobStatusResponse
+	(*WorkerStateRequest)(nil),       // 9: orbit.v1.WorkerStateRequest
+	(*WorkerStateResponse)(nil),      // 10: orbit.v1.WorkerStateResponse
 }
 var file_orbit_v1_orbit_proto_depIdxs = []int32{
 	0,  // 0: orbit.v1.Worker.total:type_name -> orbit.v1.ResourceRequest
@@ -731,11 +836,15 @@ var file_orbit_v1_orbit_proto_depIdxs = []int32{
 	5,  // 8: orbit.v1.OrbitController.WorkerSession:input_type -> orbit.v1.WorkerSessionMessage
 	2,  // 9: orbit.v1.OrbitController.Submit:input_type -> orbit.v1.Job
 	7,  // 10: orbit.v1.OrbitController.GetJob:input_type -> orbit.v1.JobStatusRequest
-	6,  // 11: orbit.v1.OrbitController.WorkerSession:output_type -> orbit.v1.ControllerSessionMessage
-	3,  // 12: orbit.v1.OrbitController.Submit:output_type -> orbit.v1.Assignment
-	8,  // 13: orbit.v1.OrbitController.GetJob:output_type -> orbit.v1.JobStatusResponse
-	11, // [11:14] is the sub-list for method output_type
-	8,  // [8:11] is the sub-list for method input_type
+	9,  // 11: orbit.v1.OrbitController.DrainWorker:input_type -> orbit.v1.WorkerStateRequest
+	9,  // 12: orbit.v1.OrbitController.UndrainWorker:input_type -> orbit.v1.WorkerStateRequest
+	6,  // 13: orbit.v1.OrbitController.WorkerSession:output_type -> orbit.v1.ControllerSessionMessage
+	3,  // 14: orbit.v1.OrbitController.Submit:output_type -> orbit.v1.Assignment
+	8,  // 15: orbit.v1.OrbitController.GetJob:output_type -> orbit.v1.JobStatusResponse
+	10, // 16: orbit.v1.OrbitController.DrainWorker:output_type -> orbit.v1.WorkerStateResponse
+	10, // 17: orbit.v1.OrbitController.UndrainWorker:output_type -> orbit.v1.WorkerStateResponse
+	13, // [13:18] is the sub-list for method output_type
+	8,  // [8:13] is the sub-list for method input_type
 	8,  // [8:8] is the sub-list for extension type_name
 	8,  // [8:8] is the sub-list for extension extendee
 	0,  // [0:8] is the sub-list for field type_name
@@ -762,7 +871,7 @@ func file_orbit_v1_orbit_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_orbit_v1_orbit_proto_rawDesc), len(file_orbit_v1_orbit_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   9,
+			NumMessages:   11,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

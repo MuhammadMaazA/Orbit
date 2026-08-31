@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 	"sync"
@@ -19,6 +20,14 @@ const (
 	Failed    JobStatus = "failed"
 )
 
+var ErrQueueFull = errors.New("controller: job queue is full")
+
+type Config struct {
+	MaxAttempts   int
+	MaxQueuedJobs int
+	AgingInterval time.Duration
+}
+
 type Assignment struct {
 	ID        string
 	Job       model.Job
@@ -36,6 +45,7 @@ type JobView struct {
 
 type Stats struct {
 	Workers   int
+	Draining  int
 	Queued    int
 	Running   int
 	Completed int
@@ -47,6 +57,7 @@ type workerState struct {
 	capacity model.Capacity
 	session  string
 	seen     time.Time
+	draining bool
 }
 
 type jobState struct {
@@ -54,6 +65,8 @@ type jobState struct {
 	status     JobStatus
 	attempts   int
 	assignment *Assignment
+	enqueuedAt time.Time
+	sequence   uint64
 }
 
 type Controller struct {
@@ -63,20 +76,37 @@ type Controller struct {
 	workers     map[string]*workerState
 	jobs        map[string]*jobState
 	queue       []string
+	maxQueued   int
+	aging       time.Duration
+	nextSeq     uint64
+	now         func() time.Time
 }
 
 func New(policy scheduler.Policy, maxAttempts int) (*Controller, error) {
+	return NewWithConfig(policy, Config{MaxAttempts: maxAttempts, MaxQueuedJobs: 1_000, AgingInterval: 30 * time.Second})
+}
+
+func NewWithConfig(policy scheduler.Policy, config Config) (*Controller, error) {
 	if policy == nil {
 		return nil, fmt.Errorf("controller: nil scheduling policy")
 	}
-	if maxAttempts < 1 {
+	if config.MaxAttempts < 1 {
 		return nil, fmt.Errorf("controller: max attempts must be positive")
+	}
+	if config.MaxQueuedJobs < 0 {
+		return nil, fmt.Errorf("controller: max queued jobs cannot be negative")
+	}
+	if config.AgingInterval <= 0 {
+		return nil, fmt.Errorf("controller: aging interval must be positive")
 	}
 	return &Controller{
 		policy:      policy,
-		maxAttempts: maxAttempts,
+		maxAttempts: config.MaxAttempts,
 		workers:     make(map[string]*workerState),
 		jobs:        make(map[string]*jobState),
+		maxQueued:   config.MaxQueuedJobs,
+		aging:       config.AgingInterval,
+		now:         time.Now,
 	}, nil
 }
 
@@ -89,7 +119,32 @@ func (c *Controller) RegisterWorker(id, session string, capacity model.Capacity)
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.workers[id] = &workerState{id: id, session: session, capacity: capacity, seen: time.Now()}
+	if previous := c.workers[id]; previous != nil && previous.session != session {
+		c.expireWorkerLocked(id, previous.session)
+	}
+	c.workers[id] = &workerState{id: id, session: session, capacity: capacity, seen: c.now()}
+	return c.scheduleLocked(), nil
+}
+
+func (c *Controller) DrainWorker(id string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	worker := c.workers[id]
+	if worker == nil {
+		return fmt.Errorf("drain worker %q: not found", id)
+	}
+	worker.draining = true
+	return nil
+}
+
+func (c *Controller) UndrainWorker(id string) ([]Assignment, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	worker := c.workers[id]
+	if worker == nil {
+		return nil, fmt.Errorf("undrain worker %q: not found", id)
+	}
+	worker.draining = false
 	return c.scheduleLocked(), nil
 }
 
@@ -136,8 +191,11 @@ func (c *Controller) Submit(job model.Job) ([]Assignment, error) {
 	if _, exists := c.jobs[job.ID]; exists {
 		return nil, fmt.Errorf("submit job %q: already exists", job.ID)
 	}
+	if c.maxQueued > 0 && len(c.queue) >= c.maxQueued && !c.canFitAnyWorkerLocked(job) {
+		return nil, ErrQueueFull
+	}
 	c.jobs[job.ID] = &jobState{job: job, status: Queued}
-	c.queue = append(c.queue, job.ID)
+	c.enqueueLocked(c.jobs[job.ID])
 	return c.scheduleLocked(), nil
 }
 
@@ -193,11 +251,18 @@ func (c *Controller) expireWorkerLocked(workerID, session string) {
 		job.assignment = nil
 		if job.attempts < c.maxAttempts {
 			job.status = Queued
-			c.queue = append(c.queue, job.job.ID)
+			c.enqueueLocked(job)
 		} else {
 			job.status = Failed
 		}
 	}
+}
+
+func (c *Controller) enqueueLocked(job *jobState) {
+	c.nextSeq++
+	job.enqueuedAt = c.now()
+	job.sequence = c.nextSeq
+	c.queue = append(c.queue, job.job.ID)
 }
 
 func (c *Controller) GetJob(id string) (JobView, bool) {
@@ -224,24 +289,30 @@ func (c *Controller) Stats() Stats {
 			stats.Failed++
 		}
 	}
+	for _, worker := range c.workers {
+		if worker.draining {
+			stats.Draining++
+		}
+	}
 	return stats
 }
 
 func (c *Controller) scheduleLocked() []Assignment {
 	var result []Assignment
 	for len(c.queue) > 0 {
-		jobID := c.queue[0]
-		job := c.jobs[jobID]
+		c.sortQueueLocked()
 		workers := c.workerListLocked()
-		index, ok := c.policy.Select(workers, job.job)
-		if !ok {
+		queueIndex, workerIndex := c.nextSchedulableLocked(workers)
+		if queueIndex < 0 {
 			break
 		}
-		worker := c.workers[workers[index].ID]
+		jobID := c.queue[queueIndex]
+		job := c.jobs[jobID]
+		worker := c.workers[workers[workerIndex].ID]
 		if err := worker.capacity.Allocate(job.job.Resources()); err != nil {
 			break
 		}
-		c.queue = c.queue[1:]
+		c.queue = append(c.queue[:queueIndex], c.queue[queueIndex+1:]...)
 		job.attempts++
 		assignment := Assignment{ID: fmt.Sprintf("%s:%d", job.job.ID, job.attempts), Job: job.job, WorkerID: worker.id, SessionID: worker.session, Attempt: job.attempts}
 		job.assignment = &assignment
@@ -251,9 +322,52 @@ func (c *Controller) scheduleLocked() []Assignment {
 	return result
 }
 
+func (c *Controller) nextSchedulableLocked(workers []model.Worker) (int, int) {
+	for queueIndex, jobID := range c.queue {
+		job := c.jobs[jobID]
+		workerIndex, ok := c.policy.Select(workers, job.job)
+		if ok {
+			return queueIndex, workerIndex
+		}
+	}
+	return -1, -1
+}
+
+func (c *Controller) sortQueueLocked() {
+	now := c.now()
+	sort.SliceStable(c.queue, func(i, j int) bool {
+		a, b := c.jobs[c.queue[i]], c.jobs[c.queue[j]]
+		aPriority := effectivePriority(a, now, c.aging)
+		bPriority := effectivePriority(b, now, c.aging)
+		if aPriority != bPriority {
+			return aPriority > bPriority
+		}
+		if a.sequence != b.sequence {
+			return a.sequence < b.sequence
+		}
+		return a.job.ID < b.job.ID
+	})
+}
+
+func effectivePriority(job *jobState, now time.Time, aging time.Duration) int {
+	if job.enqueuedAt.IsZero() || now.Before(job.enqueuedAt) {
+		return job.job.Priority
+	}
+	return job.job.Priority + int(now.Sub(job.enqueuedAt)/aging)
+}
+
+func (c *Controller) canFitAnyWorkerLocked(job model.Job) bool {
+	workers := c.workerListLocked()
+	_, ok := c.policy.Select(workers, job)
+	return ok
+}
+
 func (c *Controller) workerListLocked() []model.Worker {
 	workers := make([]model.Worker, 0, len(c.workers))
 	for _, worker := range c.workers {
+		if worker.draining {
+			continue
+		}
 		workers = append(workers, model.Worker{ID: worker.id, Capacity: worker.capacity})
 	}
 	sort.Slice(workers, func(i, j int) bool { return workers[i].ID < workers[j].ID })

@@ -28,6 +28,8 @@ func main() {
 	timeout := flag.Duration("worker-timeout", 5*time.Second, "worker heartbeat timeout")
 	policyName := flag.String("policy", "first-fit", "scheduling policy: first-fit, best-fit, or bin-pack")
 	maxAttempts := flag.Int("max-attempts", 3, "maximum attempts per job")
+	maxQueuedJobs := flag.Int("max-queued-jobs", 1_000, "maximum queued jobs; zero disables the limit")
+	agingInterval := flag.Duration("aging-interval", 30*time.Second, "time required for a queued job to gain one effective priority level")
 	flag.Parse()
 
 	if *timeout <= 0 {
@@ -39,7 +41,7 @@ func main() {
 		slog.Error("invalid policy", "error", err)
 		os.Exit(2)
 	}
-	state, err := controller.New(policy, *maxAttempts)
+	state, err := controller.NewWithConfig(policy, controller.Config{MaxAttempts: *maxAttempts, MaxQueuedJobs: *maxQueuedJobs, AgingInterval: *agingInterval})
 	if err != nil {
 		slog.Error("create controller", "error", err)
 		os.Exit(1)
