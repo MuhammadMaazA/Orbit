@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"google.golang.org/grpc/codes"
@@ -16,10 +17,17 @@ type Server struct {
 	v1.UnimplementedOrbitControllerServer
 	controller *controller.Controller
 	metrics    *metrics.Metrics
+	mu         sync.RWMutex
+	sessions   map[string]*workerSession
+}
+
+type workerSession struct {
+	stream v1.OrbitController_WorkerSessionServer
+	mu     sync.Mutex
 }
 
 func NewServer(controller *controller.Controller, instrumentation ...*metrics.Metrics) *Server {
-	server := &Server{controller: controller}
+	server := &Server{controller: controller, sessions: make(map[string]*workerSession)}
 	if len(instrumentation) > 0 {
 		server.metrics = instrumentation[0]
 	}
@@ -36,7 +44,9 @@ func (s *Server) Submit(_ context.Context, request *v1.Job) (*v1.Assignment, err
 	}
 	if s.metrics != nil {
 		s.metrics.JobsSubmitted.Inc()
+		s.updateMetrics()
 	}
+	s.dispatch(assignments)
 	if len(assignments) == 0 {
 		return &v1.Assignment{}, nil
 	}
@@ -58,17 +68,27 @@ func (s *Server) GetJob(_ context.Context, request *v1.JobStatusRequest) (*v1.Jo
 
 func (s *Server) WorkerSession(stream v1.OrbitController_WorkerSessionServer) error {
 	var workerID, sessionID string
+	var session *workerSession
+	defer func() {
+		if workerID == "" || session == nil {
+			return
+		}
+		s.removeSession(workerID, session)
+		assignments, _ := s.controller.WorkerLost(workerID, sessionID)
+		s.dispatch(assignments)
+	}()
 	for {
 		message, err := stream.Recv()
 		if err != nil {
-			if workerID != "" {
-				_, _ = s.controller.WorkerLost(workerID, sessionID)
-			}
 			return err
 		}
 		switch payload := message.Payload.(type) {
 		case *v1.WorkerSessionMessage_Register:
 			workerID, sessionID = payload.Register.Id, payload.Register.SessionId
+			session = &workerSession{stream: stream}
+			s.mu.Lock()
+			s.sessions[workerID] = session
+			s.mu.Unlock()
 			assignments, err := s.controller.RegisterWorker(workerID, sessionID, fromCapacity(payload.Register.Total))
 			if err != nil {
 				return status.Error(codes.InvalidArgument, err.Error())
@@ -76,14 +96,15 @@ func (s *Server) WorkerSession(stream v1.OrbitController_WorkerSessionServer) er
 			if s.metrics != nil {
 				s.updateMetrics()
 			}
-			if err := sendAssignments(stream, assignments); err != nil {
-				return err
-			}
+			s.dispatch(assignments)
 		case *v1.WorkerSessionMessage_HeartbeatSessionId:
+			if session == nil {
+				return status.Error(codes.FailedPrecondition, "worker must register first")
+			}
 			if err := s.controller.Heartbeat(workerID, payload.HeartbeatSessionId, now()); err != nil {
 				return status.Error(codes.PermissionDenied, err.Error())
 			}
-			if err := stream.Send(&v1.ControllerSessionMessage{Payload: &v1.ControllerSessionMessage_HeartbeatAckSessionId{HeartbeatAckSessionId: payload.HeartbeatSessionId}}); err != nil {
+			if err := session.send(&v1.ControllerSessionMessage{Payload: &v1.ControllerSessionMessage_HeartbeatAckSessionId{HeartbeatAckSessionId: payload.HeartbeatSessionId}}); err != nil {
 				return err
 			}
 		case *v1.WorkerSessionMessage_Completion:
@@ -103,12 +124,35 @@ func (s *Server) WorkerSession(stream v1.OrbitController_WorkerSessionServer) er
 					}
 					s.updateMetrics()
 				}
-				if err := sendAssignments(stream, assignments); err != nil {
-					return err
-				}
+				s.dispatch(assignments)
 			}
 		}
 	}
+}
+
+func (s *Server) dispatch(assignments []controller.Assignment) {
+	for _, assignment := range assignments {
+		s.mu.RLock()
+		session := s.sessions[assignment.WorkerID]
+		s.mu.RUnlock()
+		if session != nil {
+			_ = session.send(&v1.ControllerSessionMessage{Payload: &v1.ControllerSessionMessage_Assignment{Assignment: toAssignment(assignment)}})
+		}
+	}
+}
+
+func (session *workerSession) send(message *v1.ControllerSessionMessage) error {
+	session.mu.Lock()
+	defer session.mu.Unlock()
+	return session.stream.Send(message)
+}
+
+func (s *Server) removeSession(workerID string, session *workerSession) {
+	s.mu.Lock()
+	if s.sessions[workerID] == session {
+		delete(s.sessions, workerID)
+	}
+	s.mu.Unlock()
 }
 
 func (s *Server) updateMetrics() {
@@ -119,15 +163,6 @@ func (s *Server) updateMetrics() {
 }
 
 var now = func() time.Time { return time.Now() }
-
-func sendAssignments(stream v1.OrbitController_WorkerSessionServer, assignments []controller.Assignment) error {
-	for _, assignment := range assignments {
-		if err := stream.Send(&v1.ControllerSessionMessage{Payload: &v1.ControllerSessionMessage_Assignment{Assignment: toAssignment(assignment)}}); err != nil {
-			return err
-		}
-	}
-	return nil
-}
 
 func fromJob(job *v1.Job) model.Job {
 	return model.Job{ID: job.Id, CPU: int(job.Resources.Cpu), MemoryMB: int(job.Resources.MemoryMb), GPU: int(job.Resources.Gpu)}

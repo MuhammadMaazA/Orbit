@@ -1,0 +1,4 @@
+policy,jobs,completed,makespan,average_wait,average_turnaround
+first-fit,100,100,99,0.00,3.14
+best-fit,100,100,99,0.00,3.14
+bin-pack,100,100,99,0.00,3.14
