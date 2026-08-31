@@ -2,6 +2,7 @@ package integration
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"testing"
 	"time"
@@ -79,7 +80,21 @@ func TestWorkerLossDispatchesRetryToAnotherSession(t *testing.T) {
 		t.Fatal(err)
 	}
 	register := func(stream v1.OrbitController_WorkerSessionClient, id string) error {
-		return stream.Send(&v1.WorkerSessionMessage{Payload: &v1.WorkerSessionMessage_Register{Register: &v1.Worker{Id: id, SessionId: id + "-session", Total: &v1.ResourceRequest{Cpu: 2, MemoryMb: 1024}}}})
+		session := id + "-session"
+		if err := stream.Send(&v1.WorkerSessionMessage{Payload: &v1.WorkerSessionMessage_Register{Register: &v1.Worker{Id: id, SessionId: session, Total: &v1.ResourceRequest{Cpu: 2, MemoryMb: 1024}}}}); err != nil {
+			return err
+		}
+		if err := stream.Send(&v1.WorkerSessionMessage{Payload: &v1.WorkerSessionMessage_HeartbeatSessionId{HeartbeatSessionId: session}}); err != nil {
+			return err
+		}
+		ack, err := stream.Recv()
+		if err != nil {
+			return err
+		}
+		if ack.GetHeartbeatAckSessionId() != session {
+			return fmt.Errorf("registration acknowledgement = %q, want %q", ack.GetHeartbeatAckSessionId(), session)
+		}
+		return nil
 	}
 	if err := register(streamB, "worker-b"); err != nil {
 		t.Fatal(err)
