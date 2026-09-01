@@ -1,0 +1,488 @@
+{
+  "version": 1,
+  "events": [
+    {
+      "time_ms": 0,
+      "type": "worker_added",
+      "worker_id": "machine-1093339",
+      "cpu": 32,
+      "memory_mb": 32676
+    },
+    {
+      "time_ms": 0,
+      "type": "worker_added",
+      "worker_id": "machine-1274979",
+      "cpu": 32,
+      "memory_mb": 65470
+    },
+    {
+      "time_ms": 0,
+      "type": "worker_added",
+      "worker_id": "machine-1295363356",
+      "cpu": 32,
+      "memory_mb": 32676
+    },
+    {
+      "time_ms": 0,
+      "type": "worker_added",
+      "worker_id": "machine-1441724561",
+      "cpu": 32,
+      "memory_mb": 32676
+    },
+    {
+      "time_ms": 0,
+      "type": "worker_added",
+      "worker_id": "machine-1765533101",
+      "cpu": 32,
+      "memory_mb": 65470
+    },
+    {
+      "time_ms": 0,
+      "type": "worker_added",
+      "worker_id": "machine-257347049",
+      "cpu": 32,
+      "memory_mb": 98173
+    },
+    {
+      "time_ms": 0,
+      "type": "worker_added",
+      "worker_id": "machine-2852041",
+      "cpu": 32,
+      "memory_mb": 32676
+    },
+    {
+      "time_ms": 0,
+      "type": "worker_added",
+      "worker_id": "machine-2853955965",
+      "cpu": 32,
+      "memory_mb": 65470
+    },
+    {
+      "time_ms": 0,
+      "type": "worker_added",
+      "worker_id": "machine-2887748136",
+      "cpu": 32,
+      "memory_mb": 65470
+    },
+    {
+      "time_ms": 0,
+      "type": "worker_added",
+      "worker_id": "machine-294847189",
+      "cpu": 32,
+      "memory_mb": 32676
+    },
+    {
+      "time_ms": 0,
+      "type": "worker_added",
+      "worker_id": "machine-294895301",
+      "cpu": 32,
+      "memory_mb": 32676
+    },
+    {
+      "time_ms": 0,
+      "type": "worker_added",
+      "worker_id": "machine-322055066",
+      "cpu": 32,
+      "memory_mb": 32676
+    },
+    {
+      "time_ms": 0,
+      "type": "worker_added",
+      "worker_id": "machine-336030351",
+      "cpu": 32,
+      "memory_mb": 32676
+    },
+    {
+      "time_ms": 0,
+      "type": "worker_added",
+      "worker_id": "machine-336069331",
+      "cpu": 32,
+      "memory_mb": 32676
+    },
+    {
+      "time_ms": 0,
+      "type": "worker_added",
+      "worker_id": "machine-3652042894",
+      "cpu": 32,
+      "memory_mb": 65470
+    },
+    {
+      "time_ms": 0,
+      "type": "worker_added",
+      "worker_id": "machine-38686564",
+      "cpu": 32,
+      "memory_mb": 32676
+    },
+    {
+      "time_ms": 0,
+      "type": "worker_added",
+      "worker_id": "machine-38707774",
+      "cpu": 32,
+      "memory_mb": 32676
+    },
+    {
+      "time_ms": 0,
+      "type": "worker_added",
+      "worker_id": "machine-38750921",
+      "cpu": 32,
+      "memory_mb": 32676
+    },
+    {
+      "time_ms": 0,
+      "type": "worker_added",
+      "worker_id": "machine-3890293102",
+      "cpu": 32,
+      "memory_mb": 65470
+    },
+    {
+      "time_ms": 0,
+      "type": "worker_added",
+      "worker_id": "machine-3958001362",
+      "cpu": 32,
+      "memory_mb": 32676
+    },
+    {
+      "time_ms": 0,
+      "type": "worker_added",
+      "worker_id": "machine-4132907989",
+      "cpu": 32,
+      "memory_mb": 65470
+    },
+    {
+      "time_ms": 0,
+      "type": "worker_added",
+      "worker_id": "machine-4479483611",
+      "cpu": 32,
+      "memory_mb": 65470
+    },
+    {
+      "time_ms": 0,
+      "type": "worker_added",
+      "worker_id": "machine-4490872448",
+      "cpu": 32,
+      "memory_mb": 65470
+    },
+    {
+      "time_ms": 0,
+      "type": "worker_added",
+      "worker_id": "machine-47970830",
+      "cpu": 32,
+      "memory_mb": 32676
+    },
+    {
+      "time_ms": 0,
+      "type": "worker_added",
+      "worker_id": "machine-4820092151",
+      "cpu": 64,
+      "memory_mb": 131072
+    },
+    {
+      "time_ms": 0,
+      "type": "worker_added",
+      "worker_id": "machine-4820248123",
+      "cpu": 64,
+      "memory_mb": 131072
+    },
+    {
+      "time_ms": 0,
+      "type": "worker_added",
+      "worker_id": "machine-486827",
+      "cpu": 32,
+      "memory_mb": 65470
+    },
+    {
+      "time_ms": 0,
+      "type": "worker_added",
+      "worker_id": "machine-6567586",
+      "cpu": 32,
+      "memory_mb": 65470
+    },
+    {
+      "time_ms": 0,
+      "type": "worker_added",
+      "worker_id": "machine-6567630",
+      "cpu": 32,
+      "memory_mb": 65470
+    },
+    {
+      "time_ms": 0,
+      "type": "worker_added",
+      "worker_id": "machine-7247489",
+      "cpu": 32,
+      "memory_mb": 65470
+    },
+    {
+      "time_ms": 0,
+      "type": "worker_added",
+      "worker_id": "machine-82789745",
+      "cpu": 32,
+      "memory_mb": 32676
+    },
+    {
+      "time_ms": 0,
+      "type": "worker_added",
+      "worker_id": "machine-974254",
+      "cpu": 32,
+      "memory_mb": 65470
+    },
+    {
+      "time_ms": 3308,
+      "type": "job_submitted",
+      "job_id": "task-515042969-6",
+      "cpu": 1,
+      "memory_mb": 2036,
+      "duration_ms": 26169
+    },
+    {
+      "time_ms": 4046,
+      "type": "job_submitted",
+      "job_id": "task-6250345153-878",
+      "cpu": 4,
+      "memory_mb": 1564,
+      "duration_ms": 2366735
+    },
+    {
+      "time_ms": 4046,
+      "type": "job_submitted",
+      "job_id": "task-6251639646-0",
+      "cpu": 4,
+      "memory_mb": 2084,
+      "duration_ms": 69682,
+      "priority": 9
+    },
+    {
+      "time_ms": 5587,
+      "type": "job_submitted",
+      "job_id": "task-515042969-7",
+      "cpu": 1,
+      "memory_mb": 2036,
+      "duration_ms": 25111
+    },
+    {
+      "time_ms": 7403,
+      "type": "job_submitted",
+      "job_id": "task-515042969-26",
+      "cpu": 1,
+      "memory_mb": 2036,
+      "duration_ms": 25742
+    },
+    {
+      "time_ms": 8159,
+      "type": "job_submitted",
+      "job_id": "task-515042969-24",
+      "cpu": 1,
+      "memory_mb": 2036,
+      "duration_ms": 28062
+    },
+    {
+      "time_ms": 8963,
+      "type": "job_submitted",
+      "job_id": "task-515042969-15",
+      "cpu": 1,
+      "memory_mb": 2036,
+      "duration_ms": 24040
+    },
+    {
+      "time_ms": 8963,
+      "type": "job_submitted",
+      "job_id": "task-515042969-9",
+      "cpu": 1,
+      "memory_mb": 2036,
+      "duration_ms": 29644
+    },
+    {
+      "time_ms": 9855,
+      "type": "job_submitted",
+      "job_id": "task-515042969-14",
+      "cpu": 1,
+      "memory_mb": 2036,
+      "duration_ms": 26525
+    },
+    {
+      "time_ms": 10633,
+      "type": "job_submitted",
+      "job_id": "task-515042969-5",
+      "cpu": 1,
+      "memory_mb": 2036,
+      "duration_ms": 31421
+    },
+    {
+      "time_ms": 10633,
+      "type": "job_submitted",
+      "job_id": "task-515042969-17",
+      "cpu": 1,
+      "memory_mb": 2036,
+      "duration_ms": 20383
+    },
+    {
+      "time_ms": 12141,
+      "type": "job_submitted",
+      "job_id": "task-6251668759-0",
+      "cpu": 4,
+      "memory_mb": 611,
+      "duration_ms": 48575
+    },
+    {
+      "time_ms": 12882,
+      "type": "job_submitted",
+      "job_id": "task-515042969-23",
+      "cpu": 1,
+      "memory_mb": 2036,
+      "duration_ms": 29106
+    },
+    {
+      "time_ms": 12883,
+      "type": "job_submitted",
+      "job_id": "task-515042969-12",
+      "cpu": 1,
+      "memory_mb": 2036,
+      "duration_ms": 23439
+    },
+    {
+      "time_ms": 12883,
+      "type": "job_submitted",
+      "job_id": "task-515042969-4",
+      "cpu": 1,
+      "memory_mb": 2036,
+      "duration_ms": 23439
+    },
+    {
+      "time_ms": 13709,
+      "type": "job_submitted",
+      "job_id": "task-6250345153-822",
+      "cpu": 4,
+      "memory_mb": 1564,
+      "duration_ms": 2153913
+    },
+    {
+      "time_ms": 13709,
+      "type": "job_submitted",
+      "job_id": "task-515042969-3",
+      "cpu": 1,
+      "memory_mb": 2036,
+      "duration_ms": 25901
+    },
+    {
+      "time_ms": 13709,
+      "type": "job_submitted",
+      "job_id": "task-515042969-8",
+      "cpu": 1,
+      "memory_mb": 2036,
+      "duration_ms": 17287
+    },
+    {
+      "time_ms": 13709,
+      "type": "job_submitted",
+      "job_id": "task-515042969-25",
+      "cpu": 1,
+      "memory_mb": 2036,
+      "duration_ms": 23851
+    },
+    {
+      "time_ms": 16005,
+      "type": "job_submitted",
+      "job_id": "task-515042969-21",
+      "cpu": 1,
+      "memory_mb": 2036,
+      "duration_ms": 24084
+    },
+    {
+      "time_ms": 17115,
+      "type": "job_submitted",
+      "job_id": "task-6251668917-0",
+      "cpu": 2,
+      "memory_mb": 2084,
+      "duration_ms": 34678,
+      "priority": 1
+    },
+    {
+      "time_ms": 17869,
+      "type": "job_submitted",
+      "job_id": "task-515042969-0",
+      "cpu": 1,
+      "memory_mb": 2036,
+      "duration_ms": 27253
+    },
+    {
+      "time_ms": 18629,
+      "type": "job_submitted",
+      "job_id": "task-515042969-19",
+      "cpu": 1,
+      "memory_mb": 2036,
+      "duration_ms": 16090
+    },
+    {
+      "time_ms": 19396,
+      "type": "job_submitted",
+      "job_id": "task-6251668761-0",
+      "memory_mb": 204,
+      "duration_ms": 28114,
+      "priority": 2
+    },
+    {
+      "time_ms": 20142,
+      "type": "job_submitted",
+      "job_id": "task-515042969-2",
+      "cpu": 1,
+      "memory_mb": 2036,
+      "duration_ms": 41452
+    },
+    {
+      "time_ms": 20934,
+      "type": "job_submitted",
+      "job_id": "task-515042969-13",
+      "cpu": 1,
+      "memory_mb": 2036,
+      "duration_ms": 22029
+    },
+    {
+      "time_ms": 21638,
+      "type": "job_submitted",
+      "job_id": "task-515042969-22",
+      "cpu": 1,
+      "memory_mb": 2036,
+      "duration_ms": 17965
+    },
+    {
+      "time_ms": 21639,
+      "type": "job_submitted",
+      "job_id": "task-515042969-1",
+      "cpu": 1,
+      "memory_mb": 2036,
+      "duration_ms": 25099
+    },
+    {
+      "time_ms": 24892,
+      "type": "job_submitted",
+      "job_id": "task-515042969-10",
+      "cpu": 1,
+      "memory_mb": 2036,
+      "duration_ms": 18801
+    },
+    {
+      "time_ms": 24893,
+      "type": "job_submitted",
+      "job_id": "task-5285926325-0",
+      "cpu": 4,
+      "memory_mb": 815,
+      "duration_ms": 21915,
+      "priority": 9
+    },
+    {
+      "time_ms": 25598,
+      "type": "job_submitted",
+      "job_id": "task-515042969-18",
+      "cpu": 1,
+      "memory_mb": 2036,
+      "duration_ms": 26311
+    },
+    {
+      "time_ms": 28470,
+      "type": "job_submitted",
+      "job_id": "task-515042969-16",
+      "cpu": 1,
+      "memory_mb": 2036,
+      "duration_ms": 35990
+    }
+  ]
+}
