@@ -49,22 +49,22 @@ The comparison reports completion, makespan, wait percentiles, modelled energy, 
 
 `traces/google-cluster-2011.json` is a 30-second slice of Google's real
 `clusterdata-2011-2` Borg trace ([CC-BY](https://creativecommons.org/licenses/by/4.0/),
-[github.com/google/cluster-data](https://github.com/google/cluster-data)):
-32 real machines, 32 real jobs, real CPU/memory/duration/priority.
+[github.com/google/cluster-data](https://github.com/google/cluster-data)).
+32 machines, 32 jobs, unmodified from the trace.
 `cmd/googletrace` converts Google's raw `task_events`/`machine_events` CSVs
-into Orbit's normalized format:
+into Orbit's normalized format.
 
 ```text
 go run ./cmd/googletrace -task-events task_events.csv -machine-events machine_events.csv \
   -output traces/google-cluster-2011.normalized.csv
-orbit import normalized traces/google-cluster-2011.normalized.csv --output traces/google-cluster-2011.json
+orbit import --output traces/google-cluster-2011.json normalized traces/google-cluster-2011.normalized.csv
 orbit compare -trace traces/google-cluster-2011.json -baseline first-fit -candidate best-fit
 ```
 
-Metric deltas are `+0` here: 32 machines easily cover 32 light jobs, so
+Metric deltas are `+0` here. 32 machines easily cover 32 light jobs, so
 nothing queues. Placement still diverges (`FIRST DIVERGENCE`) and explains
-why. Capping the same real jobs to one worker (`-max-workers 1`) makes them
-queue for real: p95 wait goes from 0ms to 37683ms.
+why. Capping the same jobs to one worker (`-max-workers 1`) makes them
+queue for real. p95 wait goes from 0ms to 37683ms.
 
 ## Policies
 
