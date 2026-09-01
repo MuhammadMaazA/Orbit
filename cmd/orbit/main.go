@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"runtime/debug"
 
 	"github.com/MuhammadMaazA/Orbit/internal/energy"
 	"github.com/MuhammadMaazA/Orbit/internal/importer"
@@ -24,7 +25,7 @@ func main() {
 		usage()
 	}
 	if os.Args[1] == "version" {
-		fmt.Println("orbit", version)
+		fmt.Println("orbit", resolveVersion())
 		return
 	}
 	if os.Args[1] == "inspect" {
@@ -128,6 +129,16 @@ func main() {
 	} else {
 		fmt.Printf("assigned %s to %s\n", assignment.Id, assignment.WorkerId)
 	}
+}
+
+func resolveVersion() string {
+	if version != "dev" {
+		return version
+	}
+	if info, ok := debug.ReadBuildInfo(); ok && info.Main.Version != "" && info.Main.Version != "(devel)" {
+		return info.Main.Version
+	}
+	return version
 }
 
 func usage() {

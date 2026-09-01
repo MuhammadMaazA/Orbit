@@ -34,6 +34,24 @@ func TestReplayPolicyRejectsUnknownName(t *testing.T) {
 	}
 }
 
+func TestResolveVersionPrefersLdflagsOverride(t *testing.T) {
+	original := version
+	defer func() { version = original }()
+	version = "v9.9.9"
+	if got := resolveVersion(); got != "v9.9.9" {
+		t.Fatalf("resolveVersion() = %q, want v9.9.9", got)
+	}
+}
+
+func TestResolveVersionFallsBackWhenUnset(t *testing.T) {
+	original := version
+	defer func() { version = original }()
+	version = "dev"
+	if got := resolveVersion(); got == "" {
+		t.Fatal("resolveVersion() returned an empty string")
+	}
+}
+
 func TestExplainSelectionMatchesEachPolicy(t *testing.T) {
 	activeEnergy := replay.Decision{Selected: "worker-a", Candidates: []replay.Candidate{{WorkerID: "worker-a", Feasible: true, Active: true}}}
 	fallbackEnergy := replay.Decision{Selected: "worker-a", Candidates: []replay.Candidate{{WorkerID: "worker-a", Feasible: true, Active: false}}}
